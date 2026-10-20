@@ -34,7 +34,8 @@ Read these before writing code:
 | Tests | `make test` (pytest), `make test-web` (tsc + vitest for every workspace) |
 | End-to-end | `make e2e` (Playwright, Chromium with a fake camera, both sites) |
 | Lint | `make lint` (ruff, eslint) |
-| TS types | `make types` regenerates `packages/types/src/models.gen.ts` from `server/pulselens/models.py`; commit both |
+| TS types | `make types` regenerates `packages/types/src/models.gen.ts` (from `server/pulselens/models.py`) and `config.gen.ts` (from `config.yaml`); commit both |
+| Explainers | `make explainers` regenerates `packages/explain/src/explainers.gen.ts` from `docs/EXPLAINERS.md`; a vitest fails while it is stale |
 | Analyse a session | `python -m pulselens.cli analyze data/sessions/<id> --plots` |
 | Evaluation | `python -m eval.run --split eval/splits.json --out eval/out` |
 

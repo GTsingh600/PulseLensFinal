@@ -81,7 +81,7 @@ data/ (gitignored)   models/ (gitignored)
 | `fp/000123.jpg` | fingerprint frames: every 5th frame at native resolution (≤ 1280x720), quality 0.95 |
 | `frames.jsonl` | `{i, t, capture_time, presented_frames, w, h, file, fp_file?}` |
 | `probe.jsonl` | one line per mode-switch step (section 7.3) |
-| `pulses.jsonl` | `{pulse_id, kind, source, params, received, applied, painted, ended, ok, sig}` |
+| `pulses.jsonl` | `{pulse_id, kind, source, params, received, applied, painted, ended, ok, sig, shown, error}`: `shown` is what the client painted (light: sRGB 0-255 `{neutral, rgb}` or `{neutral, left, right}`), `error` why `ok` is false |
 | `sensors.jsonl` | `{t, rr: [a, b, g], acc: [x, y, z], interval}` |
 | `events.jsonl` | the event stream (section 5) |
 | `results.json` | check results, families, coverage, continuity, decision |
@@ -177,7 +177,7 @@ Plot series in `signal.chunk` are downsampled to ≤ 200 points. The full data s
 | POST | `/api/pair/{code}` | customer device joins a session → `{session_id, role: "customer"}` (codes are 6 characters and expire in 10 min) |
 | POST | `/api/sessions/{id}/details` | CameraDetails from the client |
 | POST | `/api/sessions/{id}/probe` | probe.jsonl lines |
-| POST | `/api/sessions/{id}/frames` | multipart batch: meta lines, working frames, fingerprint frames |
+| POST | `/api/sessions/{id}/frames` | multipart batch: `meta` = frames.jsonl lines (`FrameMeta`), `frames` = working JPEGs, `fp` = fingerprint JPEGs, each file named as in its meta line |
 | POST | `/api/sessions/{id}/sensors` | sensor lines |
 | POST | `/api/sessions/{id}/finalize` | end of capture |
 | POST | `/api/sessions/{id}/next` | step-through mode: release the next stage |
@@ -193,6 +193,20 @@ Plot series in `signal.chunk` are downsampled to ≤ 200 points. The full data s
 - Presenter and lab roles receive every event.
 - Customer-facing payloads never include scores, check names or families. The customer sees only prompts and "please try again", "an agent will verify you" or "please visit a branch".
 - Pulses are signed with `HMAC_SHA256(secret, pulse_id|kind|params|session_id)`, single-use, released just in time, and expire in 300 ms.
+
+**Capture messages** (customer role, and the lab role on the recording device; shapes in `models.py`):
+
+| Direction | `type` | Fields | Client does |
+|---|---|---|---|
+| server → client | `stage` | `stage`, `prompt?` (explainer key) | shows the stage; for `camera` replies `stage.done` once details are posted; for `coach` runs coaching and replies `stage.done` with `{rounds: [{round, tips, metrics}], face_detector}`; for `pulses` puts up the light overlay |
+| server → client | `prompt` | `key` | shows the prompt |
+| server → client | `pulse` | `pulse_id`, `kind`, `source`, `params`, `sig` | runs it and replies `ack` |
+| server → client | `done` | `key` (`prompt.done`, `prompt.retry`, `prompt.agent`, `prompt.branch`) | flushes frames, posts final details, calls `/finalize` |
+| client → server | `ack` | `pulse_id`, `sig`, `received`, `applied`, `painted`, `ended`, `ok`, `error`, `shown` | |
+| client → server | `stage.done` | `stage`, `data` | |
+| client → server | `heartbeat` | `t` (every 2 s) | |
+
+Light `params` (`LightParams`): `{mode: "colour", hue_deg}`, `{mode: "split", left_hue_deg, right_hue_deg}` or `{mode: "white"}`, plus `duration_ms`. Hues index the isoluminant circle in `packages/capture` (6 colour pulses use hues 0, 60, ..., 300), so the colour maths lives in one place and the ack's `shown` records the exact colours. The client refuses a pulse that would make a 4th flash within 1 s (`ok: false, error: "rate_limit"`). `e2e/support/mock-server.ts` implements this protocol and the M1.2 orchestrator stub; the real server must pass the same e2e tests.
 
 ---
 
@@ -240,7 +254,7 @@ Where `resizeMode` is unsupported (Safari, Firefox), skip the unusual mode and m
 
 ### 7.4 Pulse executors
 - **Light suite** (one planning unit, about 11 s): 10 pulses of 400 ms, gaps of 700 to 1300 ms, never more than 3 flashes in any second.
-  - 6 colour pulses from an **equal-luminance set**: `isoluminantColours(Y)` in linear sRGB, relative luminance within ±5% of each other. Unit-tested.
+  - 6 colour pulses from an **equal-luminance set**: `isoluminantColours(Y)` in linear sRGB, relative luminance within ±5% of each other. Unit-tested. Between pulses the overlay shows grey at the same luminance (Y = 0.5, which gives the widest colour circle), so colour pulses change hue, not brightness.
   - 2 split-screen pulses: left half colour A, right half colour B, from the same set.
   - 2 white pulses (`config.pulses.light.white`; 0 disables them) for the noise check.
   - Phones use a full-screen overlay (fullscreen mode). Desktops use a border of 18% of the shorter side; for split pulses the left and right border halves differ.

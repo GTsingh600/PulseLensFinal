@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PulseLens capture harness</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; }
+      video { width: 240px; max-width: 100%; transform: scaleX(-1); background: #000; }
+      pre { font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+    </style>
+  </head>
+  <body data-phase="idle">
+    <!-- Developer page: runs the capture package with no UI around it. Used by e2e (M1.4) and for device debugging. -->
+    <h1>Capture harness</h1>
+    <button id="start" type="button">Start</button>
+    <video id="video" muted playsinline></video>
+    <pre id="state"></pre>
+    <script type="module" src="/src/harness.ts"></script>
+  </body>
+</html>

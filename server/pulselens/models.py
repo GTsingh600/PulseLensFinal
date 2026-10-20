@@ -19,6 +19,11 @@ CheckStatus = Literal["pending", "running", "pass", "fail", "abstain"]
 ThresholdSource = Literal["profile", "channel", "pooled", "bootstrap", "rule"]
 Route = Literal["PASS", "ADD_CHECKS", "AGENT_CHALLENGE", "ASSISTED_KYC", "HOLD"]
 Stage = Literal["camera", "coach", "plan", "pulses", "face", "decide"]
+SessionMode = Literal["live", "step", "superset"]
+PulseKind = Literal["light", "tilt", "hand", "lens", "photo"]
+PulseSource = Literal["orchestrator", "agent"]
+LightMode = Literal["colour", "split", "white"]
+AttackTool = Literal["screen_replay", "premade_injection", "liveportrait", "liveswap", "source_switch", "emulator"]
 EventType = Literal[
     "session.created",
     "stage.changed",
@@ -51,6 +56,11 @@ LITERAL_ALIASES = {
     "ThresholdSource": ThresholdSource,
     "Route": Route,
     "Stage": Stage,
+    "SessionMode": SessionMode,
+    "PulseKind": PulseKind,
+    "PulseSource": PulseSource,
+    "LightMode": LightMode,
+    "AttackTool": AttackTool,
     "EventType": EventType,
 }
 
@@ -136,5 +146,125 @@ class Event(Model):
     payload: dict[str, Any]
 
 
+# --- REST shapes (SPEC 6) ---------------------------------------------------------------------------------------
+
+
+class RecordingLabel(Model):
+    """Lab Record operator form (SPEC 13.3), stored in meta.json."""
+
+    person: str = Field(description='pseudonymous person code, e.g. "P01"')
+    device: str = Field(description='device code, e.g. "D03"')
+    light: Literal["normal", "dim"]
+    kind: Literal["genuine", "attack"]
+    tool: AttackTool | None = Field(description="set when kind is attack")
+    consent_ref: str
+
+
+class SessionCreate(Model):
+    """Body of POST /api/sessions."""
+
+    mode: SessionMode
+    product: str = Field(description='"lab" or "demo"')
+    scenario: str | None = None
+    label: RecordingLabel | None = None
+
+
+class SessionCreated(Model):
+    """Response of POST /api/sessions."""
+
+    session_id: str
+    pair_code: str
+    ws_url: str = Field(description="path of the session WebSocket, e.g. /ws/session/<id>")
+
+
+class FrameMeta(Model):
+    """One frames.jsonl line; the client sends these as the `meta` part of each frames batch."""
+
+    i: int = Field(description="frame index from 0, in capture order")
+    t: float = Field(description="canonical frame time, performance.now() domain, ms")
+    capture_time: float | None
+    presented_frames: int | None
+    w: int
+    h: int
+    file: str = Field(description="working frame file name, e.g. 000123.jpg")
+    fp_file: str | None = Field(default=None, description="fingerprint frame file name, every fp_every-th frame")
+
+
+# --- WebSocket capture messages (SPEC 6), sent to the capture device (customer or lab role) -------------------
+
+
+class LightParams(Model):
+    """params of a light pulse. Hues index the isoluminant set; the client reports the colours it painted."""
+
+    mode: LightMode
+    hue_deg: float | None = Field(default=None, description="colour mode")
+    left_hue_deg: float | None = Field(default=None, description="split mode, left half")
+    right_hue_deg: float | None = Field(default=None, description="split mode, right half")
+    duration_ms: int
+
+
+class StageMessage(Model):
+    type: Literal["stage"] = "stage"
+    stage: Stage
+    prompt: str | None = Field(default=None, description="explainer key of the customer prompt, e.g. prompt.light")
+
+
+class PromptMessage(Model):
+    type: Literal["prompt"] = "prompt"
+    key: str = Field(description="explainer key, e.g. prompt.coach.closer")
+
+
+class PulseMessage(Model):
+    type: Literal["pulse"] = "pulse"
+    pulse_id: str
+    kind: PulseKind
+    source: PulseSource
+    params: dict[str, Any] = Field(description="LightParams for kind light")
+    sig: str = Field(description="HMAC_SHA256(secret, pulse_id|kind|params|session_id), hex")
+
+
+class DoneMessage(Model):
+    type: Literal["done"] = "done"
+    key: str = Field(description="prompt.done, prompt.retry, prompt.agent or prompt.branch")
+
+
+# --- WebSocket messages from the capture device --------------------------------------------------------------
+
+
+class PulseAck(Model):
+    """Client timing of one pulse, performance.now() ms (SPEC 7.4). Becomes a pulses.jsonl line on the server."""
+
+    type: Literal["ack"] = "ack"
+    pulse_id: str
+    sig: str
+    received: float
+    applied: float | None
+    painted: float | None
+    ended: float | None
+    ok: bool
+    error: str | None = Field(default=None, description="why ok is false, e.g. rate_limit, bad_params")
+    shown: dict[str, Any] | None = Field(
+        default=None, description="light: sRGB 0-255 actually painted, {neutral, rgb} or {neutral, left, right}"
+    )
+
+
+class StageDone(Model):
+    """The client finished a stage it runs itself (camera details, coaching)."""
+
+    type: Literal["stage.done"] = "stage.done"
+    stage: Stage
+    data: dict[str, Any]
+
+
+class Heartbeat(Model):
+    type: Literal["heartbeat"] = "heartbeat"
+    t: float
+
+
 # Models mirrored to TypeScript, in output order.
-EXPORTED_MODELS: tuple[type[BaseModel], ...] = (CameraDetails, CheckResult, PlanDecision, SessionDecision, Event)
+EXPORTED_MODELS: tuple[type[BaseModel], ...] = (
+    CameraDetails, CheckResult, PlanDecision, SessionDecision, Event,
+    RecordingLabel, SessionCreate, SessionCreated, FrameMeta,
+    LightParams, StageMessage, PromptMessage, PulseMessage, DoneMessage,
+    PulseAck, StageDone, Heartbeat,
+)

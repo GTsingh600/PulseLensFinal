@@ -1,10 +1,11 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
+import { pulselensAssets } from "../vite.assets";
 
 // The server runs on :8000; the browser only talks to this origin, so the cloudflared tunnel
 // (make tunnel) needs one HTTPS URL per site and no CORS.
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), pulselensAssets()],
   server: {
     port: 5174,
     strictPort: true,

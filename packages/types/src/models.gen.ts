@@ -24,6 +24,21 @@ export type Route = (typeof routeValues)[number];
 export const stageValues = ["camera", "coach", "plan", "pulses", "face", "decide"] as const;
 export type Stage = (typeof stageValues)[number];
 
+export const sessionModeValues = ["live", "step", "superset"] as const;
+export type SessionMode = (typeof sessionModeValues)[number];
+
+export const pulseKindValues = ["light", "tilt", "hand", "lens", "photo"] as const;
+export type PulseKind = (typeof pulseKindValues)[number];
+
+export const pulseSourceValues = ["orchestrator", "agent"] as const;
+export type PulseSource = (typeof pulseSourceValues)[number];
+
+export const lightModeValues = ["colour", "split", "white"] as const;
+export type LightMode = (typeof lightModeValues)[number];
+
+export const attackToolValues = ["screen_replay", "premade_injection", "liveportrait", "liveswap", "source_switch", "emulator"] as const;
+export type AttackTool = (typeof attackToolValues)[number];
+
 export const eventTypeValues = ["session.created", "stage.changed", "camera.details", "probe.step", "camera.summary", "coach.tip", "plan.decided", "pulse.released", "pulse.acked", "signal.chunk", "check.started", "check.result", "coverage.update", "continuity.update", "photo.taken", "decision", "agent.action", "orchestrator.waiting", "error"] as const;
 export type EventType = (typeof eventTypeValues)[number];
 
@@ -112,4 +127,120 @@ export interface Event {
   t_client: number | null;
   type: EventType;
   payload: Record<string, unknown>;
+}
+
+/** Lab Record operator form (SPEC 13.3), stored in meta.json. */
+export interface RecordingLabel {
+  /** pseudonymous person code, e.g. "P01" */
+  person: string;
+  /** device code, e.g. "D03" */
+  device: string;
+  light: "normal" | "dim";
+  kind: "genuine" | "attack";
+  /** set when kind is attack */
+  tool: AttackTool | null;
+  consent_ref: string;
+}
+
+/** Body of POST /api/sessions. */
+export interface SessionCreate {
+  mode: SessionMode;
+  /** "lab" or "demo" */
+  product: string;
+  scenario: string | null;
+  label: RecordingLabel | null;
+}
+
+/** Response of POST /api/sessions. */
+export interface SessionCreated {
+  session_id: string;
+  pair_code: string;
+  /** path of the session WebSocket, e.g. /ws/session/<id> */
+  ws_url: string;
+}
+
+/** One frames.jsonl line; the client sends these as the `meta` part of each frames batch. */
+export interface FrameMeta {
+  /** frame index from 0, in capture order */
+  i: number;
+  /** canonical frame time, performance.now() domain, ms */
+  t: number;
+  capture_time: number | null;
+  presented_frames: number | null;
+  w: number;
+  h: number;
+  /** working frame file name, e.g. 000123.jpg */
+  file: string;
+  /** fingerprint frame file name, every fp_every-th frame */
+  fp_file: string | null;
+}
+
+/** params of a light pulse. Hues index the isoluminant set; the client reports the colours it painted. */
+export interface LightParams {
+  mode: LightMode;
+  /** colour mode */
+  hue_deg: number | null;
+  /** split mode, left half */
+  left_hue_deg: number | null;
+  /** split mode, right half */
+  right_hue_deg: number | null;
+  duration_ms: number;
+}
+
+export interface StageMessage {
+  type: "stage";
+  stage: Stage;
+  /** explainer key of the customer prompt, e.g. prompt.light */
+  prompt: string | null;
+}
+
+export interface PromptMessage {
+  type: "prompt";
+  /** explainer key, e.g. prompt.coach.closer */
+  key: string;
+}
+
+export interface PulseMessage {
+  type: "pulse";
+  pulse_id: string;
+  kind: PulseKind;
+  source: PulseSource;
+  /** LightParams for kind light */
+  params: Record<string, unknown>;
+  /** HMAC_SHA256(secret, pulse_id|kind|params|session_id), hex */
+  sig: string;
+}
+
+export interface DoneMessage {
+  type: "done";
+  /** prompt.done, prompt.retry, prompt.agent or prompt.branch */
+  key: string;
+}
+
+/** Client timing of one pulse, performance.now() ms (SPEC 7.4). Becomes a pulses.jsonl line on the server. */
+export interface PulseAck {
+  type: "ack";
+  pulse_id: string;
+  sig: string;
+  received: number;
+  applied: number | null;
+  painted: number | null;
+  ended: number | null;
+  ok: boolean;
+  /** why ok is false, e.g. rate_limit, bad_params */
+  error: string | null;
+  /** light: sRGB 0-255 actually painted, {neutral, rgb} or {neutral, left, right} */
+  shown: Record<string, unknown> | null;
+}
+
+/** The client finished a stage it runs itself (camera details, coaching). */
+export interface StageDone {
+  type: "stage.done";
+  stage: Stage;
+  data: Record<string, unknown>;
+}
+
+export interface Heartbeat {
+  type: "heartbeat";
+  t: number;
 }
