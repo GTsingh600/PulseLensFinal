@@ -54,9 +54,9 @@ apps/
 server/
   pulselens/
     api/ main.py sessions.py ws.py lab.py demo.py
-    models.py events.py store.py config.py cli.py orchestrator.py pairing.py fusion.py reasons.py evidence.py
+    models.py events.py store.py config.py cli.py analyze.py plots.py orchestrator.py pairing.py fusion.py reasons.py evidence.py
     vision/ models.py frames.py linearize.py face.py hand.py flow.py arcface.py clip.py prnu.py noise.py
-    checks/ base.py camera_modes.py camera_noise.py camera_fingerprint.py camera_timing.py camera_rules.py
+    checks/ base.py echo.py camera_modes.py camera_noise.py camera_fingerprint.py camera_timing.py camera_rules.py
             optical_light.py optical_face_neck.py optical_split.py optical_noise_pulse.py optical_lens.py
             motion_tilt.py content_hand.py content_hole.py content_clip.py physiology_pos.py continuity.py
     planner/ registry.py planner.py policy.yaml
@@ -87,6 +87,8 @@ data/ (gitignored)   models/ (gitignored)
 | `results.json` | check results, families, coverage, continuity, decision |
 | `photo.jpg` + `photo.json` | KYC photo and the pulse it was bound to |
 | `chain.json` | evidence hash chain |
+| `landmarks.jsonl` | cache written by `cli analyze`: `{i, landmarks}` with the normalised positions of the face-mesh points the regions use (`vision/face.py LANDMARKS_USED`), or `null` when no face was found |
+| `analysis/checks.json`, `analysis/plots/*.png` | written by `cli analyze`: every registered check's CheckResult, and echo plots with `--plots` |
 
 `t` is the canonical frame time in the `performance.now()` domain. Use `capture_time` if present, else the rVFC `now`, else the VideoFrame timestamp mapped to that domain, else the rAF time. `CameraDetails.clock_source` records which.
 
@@ -334,6 +336,7 @@ All of these use per-frame mean linear RGB of each region and the pulse log.
 2. Expected direction `d_c` = the pulse colour's chromaticity minus neutral.
 3. Projection `p(t) = (x(t) - mean_pre) · d_c`, with the baseline over the 300 ms before `painted`.
 4. Onset = the first two consecutive frames above `max(4σ_pre, a_min)` within 700 ms, interpolated to the crossing.
+5. The pulse colour is the one the client painted (`shown` in pulses.jsonl). `d_c` is normalised, so `p` and `a_min` are in chromaticity units. Interpolating across the exposure ramp makes onsets up to one frame early; the bias is constant per device, so the calibrated centre absorbs it, and it cancels in `face_neck`.
 
 | Check | Algorithm | Score |
 |---|---|---|
@@ -380,6 +383,7 @@ All of these use per-frame mean linear RGB of each region and the pulse log.
 3. **Family budget.** All calibrated checks in a family share one z threshold `τ_f`. Choose it as the smallest value whose **leave-one-person-out** family false-fail rate on set A is ≤ `alpha_family` (1%). Report the rate actually achieved and n. If n < 40 genuine sessions, use `τ = 3.0` and mark it `PROVISIONAL`.
 4. Centred checks (`*.delay`, `*.lag`, `face_neck`) store their centre. `optical.split` stores `split_sign` per channel.
 5. Output `calibration/thresholds.json`: per check `{center?, sign?, tau_f, stats per profile, n}`, plus a hash.
+   Until it exists, checks use `calibration/bootstrap.yaml`: physics-based starting values with `threshold_source: "bootstrap"`, always shown as PROVISIONAL.
 6. Bands shown on screen are the genuine 2.5% to 97.5% range of the raw feature for that profile, with its n.
 
 ---

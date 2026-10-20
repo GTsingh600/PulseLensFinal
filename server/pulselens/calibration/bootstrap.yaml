@@ -1,0 +1,22 @@
+# PROVISIONAL starting values, used only until calibration on set A genuine sessions replaces them (SPEC 10, M2.6,
+# M4.2). They are physics-based guesses, not measurements: every result that uses them carries
+# threshold_source "bootstrap" and is shown with the PROVISIONAL THRESHOLDS label (CLAUDE.md rules 3 and 4).
+# Change them only on evidence from gates G1/G2, and record why in docs/STATUS.md under Decisions.
+
+echo:
+  a_min: 0.003            # smallest projection on the pulse colour direction (chromaticity units) that counts as an echo
+
+optical.light.delay:
+  center_ms: 150          # middle of typical browser camera latency
+  tolerance_ms: 150       # pass band 0 to 300 ms until profiles are calibrated
+
+optical.face_neck:
+  center_ms: 0            # the flash reaches face and neck in the same frame
+  scale_ms: 20            # one score unit of face-vs-neck lag
+  ratio_center: 1.0       # face echo amplitude / neck echo amplitude
+  ratio_log_tolerance: 1.386   # ln 4: skin and shirt reflect differently, so up to 4x either way scores nothing
+  ratio_log_scale: 0.693       # ln 2 per score unit beyond that
+  tau: 3.0                # = calibration.provisional_tau in config.yaml
+  min_pairs: 3            # pulses with both echoes needed to judge
+  neck_min_coverage: 0.5  # share of the neck box inside the frame
+  saturation: 0.95        # linear channel mean above which the neck is clipped

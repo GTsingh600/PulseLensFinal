@@ -14,6 +14,11 @@ dependencies = [
     "python-multipart>=0.0.9",  # multipart frame batches (SPEC 6)
     "pyyaml>=6.0",
     "numpy>=1.26",
+    # Vision (track B). mediapipe pins opencv-contrib-python, so that is the one cv2 we use: a second
+    # opencv package (e.g. -headless) would overwrite the same cv2 module.
+    "mediapipe>=0.10.20,<0.11",
+    "opencv-contrib-python>=4.9",
+    "matplotlib>=3.8",
 ]
 
 [project.optional-dependencies]
