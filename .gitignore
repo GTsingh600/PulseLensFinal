@@ -1,0 +1,37 @@
+# Session data, model weights and secrets never go into git (CLAUDE.md rules 6 and 8)
+data/
+models/
+.env
+.env.*
+!.env.example
+
+# Evaluation outputs (FROZEN itself is committed)
+eval/out/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
+coverage/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
