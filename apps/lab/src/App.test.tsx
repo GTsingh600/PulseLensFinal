@@ -4,7 +4,7 @@ import { App } from "./App";
 
 describe("App", () => {
   it("renders the site title", () => {
-    render(<App />);
+    render(<App path="/" />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("PulseLens Lab");
   });
 });

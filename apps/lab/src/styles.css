@@ -3,6 +3,10 @@
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   line-height: 1.5;
   color-scheme: light dark;
+  --border: color-mix(in srgb, currentColor 18%, transparent);
+  --muted: color-mix(in srgb, currentColor 65%, transparent);
+  --accent: #2563eb;
+  --danger: #b91c1c;
 }
 body {
   margin: 0;
@@ -11,4 +15,148 @@ main {
   max-width: 960px;
   margin: 0 auto;
   padding: 16px;
+}
+h1 {
+  font-size: 1.5rem;
+}
+h2 {
+  font-size: 1.2rem;
+  margin: 0 0 8px;
+}
+h3 {
+  font-size: 1rem;
+  margin: 0 0 8px;
+}
+button,
+.button {
+  font: inherit;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+button.primary,
+.button.primary,
+form button[type="submit"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+}
+code {
+  word-break: break-all;
+}
+
+/* Operator form */
+.operator-form .row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.operator-form input,
+.operator-form select {
+  font: inherit;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  max-width: 100%;
+}
+.operator-form fieldset {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 0 0 12px;
+}
+.operator-form .inline {
+  margin-right: 16px;
+}
+.error {
+  color: var(--danger);
+  font-size: 0.9rem;
+  display: block;
+}
+
+/* Record */
+.stage-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.preview {
+  width: 100%;
+  max-width: 320px;
+  border-radius: 8px;
+  background: #000;
+  transform: scaleX(-1); /* mirror, like a selfie camera */
+}
+.explain-panel p {
+  margin: 6px 0;
+}
+.explain-panel .tag {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-right: 4px;
+}
+.prompt {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+.tips li {
+  font-weight: 600;
+}
+.progress {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.notice {
+  color: var(--muted);
+}
+
+/* Camera card fields: tap ⓘ for the explainer */
+.field {
+  border-top: 1px solid var(--border);
+  padding: 6px 0;
+}
+.field summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+.field summary::-webkit-details-marker {
+  display: none;
+}
+.field-title {
+  color: var(--muted);
+  min-width: 9rem;
+}
+.field-value {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.field p {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+}
+
+@media (min-width: 720px) {
+  .stage-layout {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .stage-side {
+    flex: 1;
+  }
 }

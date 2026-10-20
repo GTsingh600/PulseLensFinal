@@ -10,7 +10,7 @@ Ticked = acceptance checks in `docs/BUILD_PLAN.md` pass. Newest notes first in e
 - [ ] M1.3 [C] Explainer package — build step done by track A (`make explainers`, typed keys, staleness test); **key-coverage test still open for C**.
 - [x] **M1.4 [A] Capture core** — vitest: 39 tests in `packages/capture` (colours within ±5% luminance, ≤ 3 flashes/s, channel detection, uploader, pulse timing, coaching). `make e2e` (Chromium fake camera, mock server): details posted, 371 frames with strictly increasing t (captureTime clock), fingerprint frame on every 5th, 10 pulse acks in order. Runs against `e2e/support/mock-server.ts` until M1.2 lands. 2026-10-21.
 - [ ] M1.5 [B] Vision base, light echo and face-vs-neck
-- [ ] M1.6 [A] First Lab page: Record (minimal)
+- [x] **M1.6 [A] First Lab page: Record (minimal)** — `/record`: operator form → hand-over → camera, coach and light suite with the stage explainer panel, prompt and basic Camera card → labelled bundle. e2e: bundle `meta.json` carries the label, 10 pulses ok, ≥ 100 frames; stage, prompt and Camera card field text equals `docs/EXPLAINERS.md` (parsed independently in the test); no sideways scroll at 360 px. vitest: form validation, ExplainPanel and CameraCard. 2026-10-21.
 - [ ] GATE G1 (H6) [HUMAN]
 
 ### M2: Every check, UI components, Lab report (H6–18)
@@ -50,6 +50,18 @@ Ticked = acceptance checks in `docs/BUILD_PLAN.md` pass. Newest notes first in e
 - [ ] M5.4 [C] Purge script
 
 ## Needs a human
+- **Gate G1 (H6): device run of Lab Record.** Needs M1.2 (server endpoints and WebSocket matching `e2e/support/mock-server.ts`) and M1.5 (`cli analyze`) merged to `main` first; until then Lab Record only works in the e2e mock.
+  1. On the team laptop: `git pull`, `make setup`, then in three terminals `make server`, `make lab`, `make tunnel`. Note the `https://….trycloudflare.com` URL printed for :5173.
+  2. Devices: budget Android (Chrome), mid-range Android (Chrome), iPhone (Safari), laptop (Chrome). Give each a device code (D01–D04) on the paper sheet.
+  3. On each device open `<lab tunnel URL>/record`. Operator form: a team person code (e.g. P01), the device code, Light **Normal**, **Genuine**, the consent reference. Tap **Continue**, hand the device over, tap **Start**.
+  4. Allow the camera. iPhone: also allow **Motion & Orientation**. Android should go full screen.
+  5. Hold the phone about 40 cm away (laptop: sit at arm's length), face the screen, **keep neck and shoulders in view**, stay still during the colour flashes. Wait for **Recording saved**.
+  6. Repeat once more on the same device (2 sessions per device, 8 in total).
+  7. For each session: `python -m pulselens.cli analyze data/sessions/<session_id> --plots` (session id is on the Recording saved screen).
+  8. **Go if:** the Camera card filled on every device; measured fps ≥ 20 or the device maximum; light echo found on ≥ 5 of 6 colour pulses in ≥ 6 of 8 sessions; face-vs-neck computed (neck visible) in ≥ 6 of 8 sessions.
+  9. **Record per device** in the device matrix: clock source, `resizeMode` support, camera controls, gyro, median fps (all on the Camera card, and in `meta.json` → `camera_details`).
+  10. **No-go fallbacks** (BUILD_PLAN G1): pulses to 600 ms and full screen on desktops; "show your shoulders" coaching tip and the shirt region; `light` becomes ○ for desktops in `policy.yaml`.
+  11. Also note on each phone: does the full-screen flash look right (Android), does the page stay awake, is the prompt readable on the coloured overlay. If capture misbehaves, `<lab tunnel URL>/capture-harness.html` shows the raw capture state as JSON.
 - **Push to GitHub.** The local repo has the M1.1 commit on `main`; `https://github.com/GTsingh600/PulseLensFinal` is still empty. Review, then: `git remote add origin https://github.com/GTsingh600/PulseLensFinal.git` and `git push -u origin main`. Then each teammate: `git clone`, `make setup`, `git worktree add ../pl-trackA -b trackA` (B, C likewise).
 - **Assign track owners** (A, B, C) in `docs/BUILD_PLAN.md` section 1.
 - **`.env` secrets.** `make setup` copied `.env.example` to `.env` with `change-me` values; the server logs a warning until they are replaced. Generate a secret with `python -c "import secrets; print(secrets.token_hex(32))"`.
