@@ -8,7 +8,7 @@ PY ?= python3
 endif
 RUN = $(PY) scripts/dev.py
 
-.PHONY: setup server lab demo tunnel test test-web e2e lint types
+.PHONY: setup server lab demo tunnel test test-web e2e lint types explainers
 
 setup:     ## venv + server deps, npm ci for all workspaces, model files
 	$(RUN) setup
@@ -30,3 +30,5 @@ lint:      ## ruff + eslint
 	$(RUN) lint
 types:     ## regenerate packages/types from server/pulselens/models.py
 	$(RUN) types
+explainers: ## regenerate packages/explain from docs/EXPLAINERS.md
+	$(RUN) explainers

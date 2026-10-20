@@ -120,6 +120,11 @@ def lint(_: argparse.Namespace) -> None:
     run("npm", "run", "lint")
 
 
+def explainers(_: argparse.Namespace) -> None:
+    """Rebuild packages/explain from docs/EXPLAINERS.md."""
+    run("node", "--experimental-strip-types", "--disable-warning=ExperimentalWarning", "scripts/build_explainers.ts")
+
+
 def types(_: argparse.Namespace) -> None:
     """Regenerate packages/types/src/models.gen.ts from server/pulselens/models.py."""
     need_venv()
@@ -128,7 +133,7 @@ def types(_: argparse.Namespace) -> None:
 
 TASKS = {
     "setup": setup, "server": server, "lab": lab, "demo": demo, "tunnel": tunnel,
-    "test": test, "test-web": test_web, "e2e": e2e, "lint": lint, "types": types,
+    "test": test, "test-web": test_web, "e2e": e2e, "lint": lint, "types": types, "explainers": explainers,
 }
 
 
