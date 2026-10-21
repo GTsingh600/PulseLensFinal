@@ -151,6 +151,7 @@ export async function collectCameraDetails(input: DetailsInput): Promise<CameraD
     profile_claimed: profileKey(input.channel, settings.frameRate),
     noise_curve: null,
     fingerprint_pce: null,
+    camera_lock: null,
   };
 }
 

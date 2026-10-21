@@ -172,6 +172,27 @@ describe("CaptureSession", () => {
     expect(states.indexOf("finalizing")).toBeLessThan(states.lastIndexOf("done"));
   });
 
+  it("locks exposure and white balance before the first flash, reports it, and releases it at the end", async () => {
+    const { openCamera } = await import("./camera");
+    const apply = vi.fn(async () => undefined);
+    const track = {
+      label: "USB2.0 HD UVC WebCam",
+      getCapabilities: () => ({ exposureMode: ["continuous", "manual"], exposureTime: { min: 2.4, max: 5000 } }),
+      getSettings: () => ({ exposureTime: 156.25 }),
+      applyConstraints: apply,
+    };
+    vi.mocked(openCamera).mockResolvedValueOnce({ stream: { getTracks: () => [] }, track } as never);
+    const { s, api } = newSession();
+    await s.start();
+    await sockets[0]!.push({ type: "stage", stage: "pulses", prompt: null });
+    await sockets[0]!.push(PULSE);
+    expect(apply.mock.invocationCallOrder[0]!).toBeLessThan(run.mock.invocationCallOrder[0]!);
+    expect(api.postDetails).toHaveBeenCalledWith("s1", { camera_lock: expect.objectContaining({ exposure: true, exposure_time: 156.25 }) });
+    await sockets[0]!.push({ type: "done", key: null });
+    await vi.waitFor(() => expect(s.state.phase).toBe("done"));
+    expect(apply).toHaveBeenLastCalledWith({ advanced: [{ exposureMode: "continuous" }] });
+  });
+
   it("acks a pulse kind it cannot run yet with ok false, so the server logs it", async () => {
     const { s } = newSession();
     await s.start();

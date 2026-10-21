@@ -18,6 +18,7 @@ import { collectCameraDetails, detectGyro, fpsFields } from "./details";
 import { detectChannel, secureContextError } from "./env";
 import { FrameGrabber, type GrabberSource } from "./grabber";
 import { LightOverlay, LightPulseExecutor } from "./light";
+import { lockForLight } from "./lock";
 import { FrameUploader } from "./uploader";
 
 export type CapturePhase = "idle" | "starting" | "running" | "finalizing" | "done" | "error";
@@ -75,6 +76,9 @@ export class CaptureSession {
   private statsTimer: ReturnType<typeof setInterval> | undefined;
   private startResult: StartResult | null = null;
   private finishing: Promise<void> | null = null;
+  /** exposure and white balance frozen for the light suite (lock.ts); pulses wait for it */
+  private lockReady: Promise<void> | null = null;
+  private unlock: (() => Promise<void>) | null = null;
 
   constructor(private readonly opts: CaptureSessionOptions) {
     this.api = opts.api ?? new CaptureApi();
@@ -155,6 +159,7 @@ export class CaptureSession {
         } else if (msg.stage === "coach") {
           await this.coach();
         } else if (msg.stage === "pulses") {
+          this.lockCamera();
           this.showOverlay();
         }
         return;
@@ -191,6 +196,18 @@ export class CaptureSession {
     });
   }
 
+  private lockCamera(): void {
+    if (this.lockReady || !this.cam) return;
+    const track = this.cam.track;
+    this.lockReady = (async () => {
+      const { lock, restore } = await lockForLight(track);
+      this.unlock = restore;
+      if (!lock || !this.state.sessionId) return;
+      if (this.state.details) this.set({ details: { ...this.state.details, camera_lock: lock } });
+      await this.api.postDetails(this.state.sessionId, { camera_lock: lock }).catch(() => undefined);
+    })();
+  }
+
   private showOverlay(): void {
     if (this.overlay) return;
     const mode = this.state.channel === "mobile_browser" ? "fullscreen" : "border";
@@ -204,6 +221,8 @@ export class CaptureSession {
     this.set({ pulses: this.state.pulses + 1 });
     let ack: PulseAck;
     if (msg.kind === "light") {
+      this.lockCamera();
+      await this.lockReady;
       this.showOverlay();
       ack = await this.executor!.run(msg, receivedAt);
     } else {
@@ -223,6 +242,7 @@ export class CaptureSession {
       this.set({ phase: "finalizing", doneKey });
       this.overlay?.unmount();
       this.overlay = null;
+      await this.unlock?.();
       this.grabber?.stop();
       clearInterval(this.statsTimer);
       await this.uploader?.stop();

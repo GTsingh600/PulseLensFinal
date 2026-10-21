@@ -73,6 +73,8 @@ export interface CameraDetails {
   /** slope, intercept, r2, per-channel */
   noise_curve: Record<string, unknown> | null;
   fingerprint_pce: number | null;
+  /** exposure / white balance frozen for the light suite: exposure, white_balance, exposure_time (100 us units), error */
+  camera_lock: Record<string, unknown> | null;
 }
 
 export interface CheckResult {

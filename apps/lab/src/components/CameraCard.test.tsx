@@ -11,7 +11,7 @@ const g1Laptop: CameraDetails = {
   settings: { width: 640, height: 480, frameRate: 30 }, capabilities: {}, native_modes: [], fps_median: 15.649,
   fps_jitter_ms: 6.99, clock_source: "captureTime", rvfc: true, resize_mode_supported: true, gyro: "absent",
   screen: {}, webgl_renderer: "Brave", webdriver: false, profile_claimed: "desktop_browser|ge27",
-  profile_measured: "desktop_browser|lt20", noise_curve: null, fingerprint_pce: null,
+  profile_measured: "desktop_browser|lt20", noise_curve: null, fingerprint_pce: null, camera_lock: null,
 };
 
 const field = (k: Parameters<typeof explain>[0]) => screen.getByRole("group", { name: explain(k).title }).textContent;

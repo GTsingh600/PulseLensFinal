@@ -10,7 +10,7 @@ const details: CameraDetails = {
   device_id_hash: "0123456789abcdef", settings: { width: 640, height: 480, frameRate: 30 }, capabilities: {},
   native_modes: [], fps_median: 29.6, fps_jitter_ms: 2.4, clock_source: "captureTime", rvfc: true,
   resize_mode_supported: true, gyro: "absent", screen: {}, webgl_renderer: null, webdriver: false,
-  profile_claimed: "desktop_browser|ge27", profile_measured: "desktop_browser|ge27", noise_curve: null, fingerprint_pce: null,
+  profile_claimed: "desktop_browser|ge27", profile_measured: "desktop_browser|ge27", noise_curve: null, fingerprint_pce: null, camera_lock: null,
 };
 
 describe("ExplainPanel", () => {

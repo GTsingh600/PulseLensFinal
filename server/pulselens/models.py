@@ -95,6 +95,11 @@ class CameraDetails(Model):
     profile_measured: str | None
     noise_curve: dict[str, Any] | None = Field(description="slope, intercept, r2, per-channel")
     fingerprint_pce: float | None
+    camera_lock: dict[str, Any] | None = Field(
+        default=None,
+        description="exposure / white balance frozen for the light suite: exposure, white_balance, "
+        "exposure_time (100 us units), error",
+    )
 
 
 class CheckResult(Model):
