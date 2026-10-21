@@ -185,7 +185,8 @@ Plot series in `signal.chunk` are downsampled to ≤ 200 points. The full data s
 | POST | `/api/sessions/{id}/next` | (needs the session token) step-through mode: release the stage the orchestrator is waiting at; 409 when it is not waiting (a double-click never skips a stage) or the session is not in step mode |
 | POST | `/api/sessions/{id}/agent` | `{action: fire_light|fire_tilt|take_photo|approve|escalate|assisted, note}` (needs `X-Console-Passcode`) |
 | GET | `/api/sessions/{id}/events?from=seq` | (needs the session token: events carry scores) event catch-up for reconnect and replay: `{events}` with `seq >= from` (default 0), so a client that has seen up to k asks `from=k+1` |
-| GET | `/api/sessions/{id}/report` | full results for the Lab report |
+| POST | `/api/sessions/{id}/analyze` | (needs the session token) run every check on the saved bundle in a worker thread, as `cli analyze` does; 202 |
+| GET | `/api/sessions/{id}/report` | (needs the session token) `{status: none|running|error|done}`; when done, `qc` (fps, frames, dropped, acks, clock, browser, face and neck visible share) and `checks` (CheckResult list), plus `provisional_thresholds` |
 | GET | `/api/lab/sessions` | list with filters; set B rows are counts only until `FROZEN` |
 | GET | `/api/lab/results` | dashboard data (section 13.5) |
 | GET | `/api/sessions/{id}/evidence.zip` | evidence pack |

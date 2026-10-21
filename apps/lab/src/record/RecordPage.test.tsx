@@ -21,7 +21,7 @@ class FakeSession {
 }
 
 const IDLE: CaptureState = {
-  phase: "idle", sessionId: null, stage: null, promptKey: null, channel: null, details: null, coach: [], frames: 0,
+  phase: "idle", sessionId: null, token: null, stage: null, promptKey: null, channel: null, details: null, coach: [], frames: 0,
   uploaded: 0, dropped: 0, pulses: 0, acksOk: 0, doneKey: null, error: null,
 };
 

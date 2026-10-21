@@ -27,6 +27,8 @@ export type CapturePhase = "idle" | "starting" | "running" | "finalizing" | "don
 export interface CaptureState {
   phase: CapturePhase;
   sessionId: string | null;
+  /** the creator's session token (SessionCreated.token): opens events and the report */
+  token: string | null;
   stage: Stage | null;
   /** explainer key of the current customer prompt */
   promptKey: string | null;
@@ -62,7 +64,7 @@ export interface CaptureSessionOptions {
 
 export class CaptureSession {
   state: CaptureState = {
-    phase: "idle", sessionId: null, stage: null, promptKey: null, channel: null, details: null, coach: [],
+    phase: "idle", sessionId: null, token: null, stage: null, promptKey: null, channel: null, details: null, coach: [],
     frames: 0, uploaded: 0, dropped: 0, pulses: 0, acksOk: 0, doneKey: null, error: null,
   };
 
@@ -106,7 +108,7 @@ export class CaptureSession {
       const created = await this.api.createSession({
         mode: this.opts.mode, product: this.opts.product, scenario: this.opts.scenario ?? null, label: this.opts.label ?? null,
       });
-      this.set({ sessionId: created.session_id, channel });
+      this.set({ sessionId: created.session_id, token: created.token, channel });
       this.cam = await openCamera(this.opts.video);
 
       const sessionId = created.session_id;

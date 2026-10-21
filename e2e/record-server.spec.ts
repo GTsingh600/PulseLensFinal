@@ -7,7 +7,7 @@ import type { Event } from "../packages/types/src/index";
 import { E2E_DATA_DIR } from "./support/paths";
 
 test("Lab Record runs a full light suite against the real server", async ({ page, request }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   await page.goto("http://localhost:5173/record");
   await page.getByLabel("Person code").fill("P01");
   await page.getByLabel("Device code").fill("D99");
@@ -36,6 +36,15 @@ test("Lab Record runs a full light suite against the real server", async ({ page
   expect(acked.every((e) => e.payload.ok === true)).toBe(true);
   expect(events.some((e) => e.type === "camera.details")).toBe(true);
   expect(events.filter((e) => e.type === "error")).toEqual([]);
+
+  // The end screen analyses the bundle on the server and lists every check (SPEC 13.3 step 4).
+  const results = page.getByRole("region", { name: "Results" });
+  await expect(results.getByRole("heading", { name: "Results" })).toBeVisible({ timeout: 150_000 });
+  await expect(results.getByRole("note")).toContainText("PROVISIONAL THRESHOLDS");
+  await expect(results.getByLabel("Recording quality")).toContainText("fps");
+  for (const family of ["Camera reality", "Optical response"]) await expect(results.getByRole("region", { name: family })).toBeVisible();
+  await expect(results.getByRole("group", { name: "Mode-switch probe" })).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath("record-results.png"), fullPage: true });
 
   const bundle = path.join(E2E_DATA_DIR, "sessions", sessionId);
   test.skip(!existsSync(bundle), "the server was reused from another run and writes elsewhere");

@@ -71,19 +71,33 @@ def _landmarks(bundle, use_cache: bool) -> dict:
     return found
 
 
-def analyze(path: Path, plots: bool, use_cache: bool) -> int:
-    try:
-        bundle = read_bundle(path)
-    except FileNotFoundError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 2
-    if bundle.skipped:
-        print(f"Skipped {bundle.skipped} unreadable line(s) in frames.jsonl / pulses.jsonl")
+def quality_card(ctx, bundle) -> dict:
+    """The Record end screen's QC card (SPEC 13.3 step 4): numbers measured on this session only."""
+
+    def seen(r):
+        return float((r.coverage >= 0.5).mean()) if r is not None and len(r.coverage) else None
+
+    fin = bundle.meta.get("finalize") or {}
+    return {
+        "fps": ctx.fps,
+        "frames": len(ctx.t),
+        "dropped": fin.get("dropped"),
+        "acks_ok": fin.get("acks_ok"),
+        "pulses": fin.get("pulses"),
+        "clock_source": bundle.camera_details.get("clock_source"),
+        "browser": bundle.camera_details.get("browser"),
+        "face_visible": seen(ctx.regions.get("skin")),
+        "neck_visible": seen(ctx.regions.get("neck")),
+    }
+
+
+def run_analysis(bundle, use_cache: bool = True):
+    """Every registered check on one bundle; writes analysis/checks.json. Shared by the CLI and POST /analyze."""
+    from pulselens.vision.prnu import fingerprint
+
     landmarks = _landmarks(bundle, use_cache)
     thresholds = Thresholds.bootstrap()
     quality = load_config()["quality"]
-    from pulselens.vision.prnu import fingerprint
-
     ctx = build_context(
         ((meta, image, landmarks.get(meta["i"])) for meta, image in iter_frame_images(bundle)),
         bundle.pulses,
@@ -96,18 +110,30 @@ def analyze(path: Path, plots: bool, use_cache: bool) -> int:
         fingerprint=fingerprint(iter_fingerprint_images(bundle)),
     )
     results = run_checks(ctx)
+    payload = {
+        "session_id": bundle.session_id,
+        "generated_by": f"pulselens {__version__} analyze",
+        "frames": len(ctx.t),
+        "pulses": len(bundle.pulses),
+        "provisional_thresholds": thresholds.provisional,
+        "qc": quality_card(ctx, bundle),
+        "checks": [r.model_dump() for r in results],
+    }
+    write_json(analysis_dir(bundle) / "checks.json", payload)
+    return ctx, results, payload
+
+
+def analyze(path: Path, plots: bool, use_cache: bool) -> int:
+    try:
+        bundle = read_bundle(path)
+    except FileNotFoundError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+    if bundle.skipped:
+        print(f"Skipped {bundle.skipped} unreadable line(s) in frames.jsonl / pulses.jsonl")
+    ctx, results, _ = run_analysis(bundle, use_cache)
+    thresholds = Thresholds.bootstrap()
     out = analysis_dir(bundle)
-    write_json(
-        out / "checks.json",
-        {
-            "session_id": bundle.session_id,
-            "generated_by": f"pulselens {__version__} cli analyze",
-            "frames": len(ctx.t),
-            "pulses": len(bundle.pulses),
-            "provisional_thresholds": thresholds.provisional,
-            "checks": [r.model_dump() for r in results],
-        },
-    )
 
     print(f"\nSession {bundle.session_id}: {len(ctx.t)} frames, {len(ctx.colour_pulses)} colour pulses")
     if thresholds.provisional:

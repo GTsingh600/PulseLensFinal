@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import hmac
 import json
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Header, HTTPException, Query, Request, Response
@@ -145,6 +147,47 @@ async def agent(
     rt = _runtime(request, session_id)
     rt.bus.emit("agent.action", {"action": body.action, "note": body.note})
     return {"status": "logged"}
+
+
+def _analyse(path: Path) -> dict[str, Any]:
+    from pulselens.cli import run_analysis
+    from pulselens.store import read_bundle
+
+    return run_analysis(read_bundle(path))[2]
+
+
+@router.post("/sessions/{session_id}/analyze", status_code=202)
+async def analyze(
+    request: Request, session_id: str, x_session_token: Annotated[str | None, Header()] = None
+) -> dict[str, str]:
+    """Run every check on the saved bundle in a worker thread (the same analysis as `cli analyze`)."""
+    _runtime(request, session_id)
+    _token(request, session_id, x_session_token)
+    hub = _hub(request)
+    task = hub.analyses.get(session_id)
+    if task is None or task.done():
+        path = hub.store.bundle_path(session_id)
+        hub.analyses[session_id] = asyncio.get_running_loop().create_task(asyncio.to_thread(_analyse, path))
+    return {"status": "running"}
+
+
+@router.get("/sessions/{session_id}/report")
+async def report(
+    request: Request, session_id: str, x_session_token: Annotated[str | None, Header()] = None
+) -> dict[str, Any]:
+    """Results for the Lab: `running`, `error`, `none` (never analysed) or `done` with qc and checks."""
+    _runtime(request, session_id)
+    _token(request, session_id, x_session_token)
+    hub = _hub(request)
+    task = hub.analyses.get(session_id)
+    if task is not None and not task.done():
+        return {"status": "running"}
+    if task is not None and task.exception() is not None:
+        return {"status": "error", "error": f"{type(task.exception()).__name__}: {task.exception()}"}
+    file = hub.store.bundle_path(session_id) / "analysis" / "checks.json"
+    if not file.exists():
+        return {"status": "none"}
+    return {"status": "done", **json.loads(file.read_text(encoding="utf-8"))}
 
 
 @router.get("/sessions/{session_id}/events")

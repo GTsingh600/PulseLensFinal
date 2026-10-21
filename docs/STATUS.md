@@ -21,6 +21,7 @@ Ticked = acceptance checks in `docs/BUILD_PLAN.md` pass. Newest notes first in e
 - [ ] M2.5 [B] Face content and continuity
 - [ ] M2.6 [B] Calibration
 - [ ] M2.7 [C] Shared UI components
+- [ ] (part of M2.8 / SPEC 13.3 step 4) **Record results card** — `POST /analyze` + `GET /report` (token-protected, worker thread, `test_report_api.py`), and the Record end screen shows QC numbers, a count per status, every check under its family with its reason and explainer, and the PROVISIONAL THRESHOLDS label (`ResultsCard.test.tsx`; e2e against the real server in Brave). Keep/Discard and the shared `packages/ui` components are not done yet.
 - [ ] M2.8 [C] Lab Sessions and Session report
 - [ ] M2.9 [C] Evaluation scripts
 - [ ] GATE G2 (H14) [HUMAN + C]

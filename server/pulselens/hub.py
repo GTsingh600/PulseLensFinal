@@ -255,6 +255,7 @@ class Hub:
         self.clock = clock
         self.pairing = PairingRegistry(pair_ttl_ms, clock)
         self._runtimes: dict[str, SessionRuntime] = {}
+        self.analyses: dict[str, asyncio.Task] = {}  # POST /analyze runs, by session id
 
     def create(self, body: SessionCreate) -> SessionCreated:
         sid = self.store.create(body.mode, body.product, body.scenario, body.label.model_dump() if body.label else None)

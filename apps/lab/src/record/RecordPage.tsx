@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { CameraCard } from "../components/CameraCard";
 import { ExplainPanel } from "../components/ExplainPanel";
 import { OperatorForm } from "./OperatorForm";
+import { ResultsCard, useReport } from "./ResultsCard";
 
 const STAGE_KEYS: Record<Stage, ExplainerKey> = {
   camera: "stage.camera",
@@ -16,6 +17,10 @@ const STAGE_KEYS: Record<Stage, ExplainerKey> = {
 };
 
 const promptText = (key: string) => explainMaybe(key)?.text ?? "";
+
+function Results({ sessionId, token }: { sessionId: string; token: string }) {
+  return <ResultsCard report={useReport(sessionId, token)} />;
+}
 
 /**
  * Lab Record, minimal (M1.6): operator form → hand to volunteer → camera, coach and light suite with the stage
@@ -78,6 +83,7 @@ export function RecordPage() {
             Record another
           </button>
         </section>
+        {state.sessionId && state.token && <Results sessionId={state.sessionId} token={state.token} />}
       </main>
     );
   }
