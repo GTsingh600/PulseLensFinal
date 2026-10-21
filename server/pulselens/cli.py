@@ -55,6 +55,8 @@ def analyze(path: Path, plots: bool, use_cache: bool) -> int:
     except FileNotFoundError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
+    if bundle.skipped:
+        print(f"Skipped {bundle.skipped} unreadable line(s) in frames.jsonl / pulses.jsonl")
     landmarks = _landmarks(bundle, use_cache)
     thresholds = Thresholds.bootstrap()
     quality = load_config()["quality"]

@@ -86,15 +86,13 @@ def test_cli_vector(tmp_path: Path, name: str) -> None:
         assert got[check_id] in statuses, (name, check_id, got)
 
 
-@pytest.mark.xfail(strict=True, reason="store._jsonl raises on one bad line, so the whole session is lost")
 @pytest.mark.parametrize(
     ("file", "bad_line"),
     [("frames.jsonl", "{not json"), ("pulses.jsonl", "{not json"), ("frames.jsonl", '{"t": 5.0}')],
 )
-def test_a_damaged_log_line_is_reported_not_a_traceback(tmp_path: Path, file: str, bad_line: str, capsys) -> None:
+def test_a_damaged_log_line_is_skipped_and_reported(tmp_path: Path, file: str, bad_line: str, capsys) -> None:
     bundle = write_bundle(tmp_path, light_session(seed=12))
     rewrite_jsonl(bundle / file, lambda lines: lines[:50] + [bad_line] + lines[50:])
-    code = cli.main(["analyze", str(bundle)])
-    assert code in (0, 2)
-    if code == 2:
-        assert file in capsys.readouterr().err
+    assert cli.main(["analyze", str(bundle)]) == 0
+    assert "Skipped 1 unreadable line" in capsys.readouterr().out
+    assert checks(bundle)[LIGHT] == "pass"  # one lost line does not lose the session
