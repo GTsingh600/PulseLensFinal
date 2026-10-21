@@ -14,9 +14,9 @@ Ticked = acceptance checks in `docs/BUILD_PLAN.md` pass. Newest notes first in e
 - [ ] GATE G1 (H6) [HUMAN]
 
 ### M2: Every check, UI components, Lab report (H6–18)
-- [ ] M2.1 [A] Mode-switch probe and Lab Device check page
+- [ ] M2.1 [A] Mode-switch probe and Lab Device check page — probe done (`probe.ts`, posted as probe.jsonl + native_modes, vitest on a simulated camera, e2e in Brave); Device check page not yet.
 - [ ] M2.2 [A] Remaining pulses and superset Record
-- [ ] M2.3 [B] Camera reality checks
+- [x] **M2.3 [B] Camera reality checks** — modes, noise curve, fingerprint, timing, duplicates, claim/env/label; `test_camera_checks.py` covers every M2.3 accept item (PCE high/low/static-shift, slope recovery, phantom mode change, ORB crop within 5%, exact duplicates, rule truth tables). Replay e2e: every camera check passes genuine replayed footage (fingerprint PCE 7542) and only `optical.light.delay` fails it, which is the case for active pulses. 2026-10-21.
 - [ ] M2.4 [B] Optical, motion and lens
 - [ ] M2.5 [B] Face content and continuity
 - [ ] M2.6 [B] Calibration
