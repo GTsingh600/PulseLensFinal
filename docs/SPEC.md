@@ -182,18 +182,20 @@ Plot series in `signal.chunk` are downsampled to ≤ 200 points. The full data s
 | POST | `/api/sessions/{id}/frames` | multipart batch: `meta` = frames.jsonl lines (`FrameMeta`), `frames` = working JPEGs, `fp` = fingerprint JPEGs, each file named as in its meta line |
 | POST | `/api/sessions/{id}/sensors` | sensor lines |
 | POST | `/api/sessions/{id}/finalize` | end of capture |
-| POST | `/api/sessions/{id}/next` | step-through mode: release the stage the orchestrator is waiting at; 409 when it is not waiting (a double-click never skips a stage) or the session is not in step mode |
+| POST | `/api/sessions/{id}/next` | (needs the session token) step-through mode: release the stage the orchestrator is waiting at; 409 when it is not waiting (a double-click never skips a stage) or the session is not in step mode |
 | POST | `/api/sessions/{id}/agent` | `{action: fire_light|fire_tilt|take_photo|approve|escalate|assisted, note}` (needs `X-Console-Passcode`) |
-| GET | `/api/sessions/{id}/events?from=seq` | event catch-up for reconnect and replay: `{events}` with `seq >= from` (default 0), so a client that has seen up to k asks `from=k+1` |
+| GET | `/api/sessions/{id}/events?from=seq` | (needs the session token: events carry scores) event catch-up for reconnect and replay: `{events}` with `seq >= from` (default 0), so a client that has seen up to k asks `from=k+1` |
 | GET | `/api/sessions/{id}/report` | full results for the Lab report |
 | GET | `/api/lab/sessions` | list with filters; set B rows are counts only until `FROZEN` |
 | GET | `/api/lab/results` | dashboard data (section 13.5) |
 | GET | `/api/sessions/{id}/evidence.zip` | evidence pack |
 
-**WebSocket `/ws/session/{id}?role=customer|presenter|lab[&from=seq]`**
+**Session token.** `POST /api/sessions` returns `token` = HMAC(`PULSE_HMAC_SECRET`, `console|<id>`), truncated to 32 hex. Only the creator (Lab page, presenter) gets it; pairing gives the customer the session id alone. It goes in `X-Session-Token` (or `?token=`) for `/events` and `/next`, and in `?token=` for the presenter and lab sockets (401 / close 4401 without it), so a customer who knows the session id still never sees scores.
+
+**WebSocket `/ws/session/{id}?role=customer|presenter|lab[&from=seq][&token=]`**
 - Customer role receives `prompt`, `pulse`, `stage` and `done` messages, and sends acks and heartbeats.
 - Presenter and lab roles receive every event as `{"type": "event", "event": Event}`. A presenter first gets the events from `from` (default 0); the lab role (the Lab's capture device) gets new events only unless it passes `from`.
-- One capture device (customer or lab role) per session; a second one is closed with code 4409. Unknown session: 4404; unknown role: 4400. Connecting the capture device starts the orchestrator.
+- One capture device (customer or lab role) per session; a second one is closed with code 4409. Unknown session: 4404; unknown role: 4400; presenter or lab without the session token: 4401. Connecting the capture device starts the orchestrator.
 - Customer-facing payloads never include scores, check names or families. The customer sees only prompts and "please try again", "an agent will verify you" or "please visit a branch".
 - Pulses are signed with `HMAC_SHA256(secret, pulse_id|kind|params|session_id)` (params as canonical JSON: sorted keys, no spaces), single-use, released just in time, and expire in 300 ms.
 - Acks: accepted once, only with the pulse's signature; a repeat, an unknown pulse or a wrong signature is rejected and logged as an `error` event. An ack is **late** (`ok: false`, `error: "late"`) when the client painted more than `expires_in_ms` after receiving the pulse, or when it reaches the server after `release + duration + expires_in_ms + 1500 ms`. Pulses never acked are logged `no_ack` at the end. Every message to a customer is checked against a deny-list (`score`, `check_id`, `family`, …) before it is sent.

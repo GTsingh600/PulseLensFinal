@@ -177,6 +177,10 @@ class SessionCreated(Model):
     session_id: str
     pair_code: str
     ws_url: str = Field(description="path of the session WebSocket, e.g. /ws/session/<id>")
+    token: str = Field(
+        description="session console token: needed for the presenter and lab roles, the events catch-up and /next; "
+        "never given to the customer, who only gets the session id from pairing"
+    )
 
 
 class FrameMeta(Model):

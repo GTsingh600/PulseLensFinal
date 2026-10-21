@@ -14,12 +14,18 @@ test("Lab Record runs a full light suite against the real server", async ({ page
   await page.getByLabel("Genuine").check();
   await page.getByLabel("Consent reference").fill("C-E2E");
   await page.getByRole("button", { name: "Continue" }).click();
+  const created = page.waitForResponse((r) => r.url().endsWith("/api/sessions") && r.request().method() === "POST");
   await page.getByRole("button", { name: "Start" }).click();
+  const { token } = await (await created).json();
   await expect(page.getByRole("heading", { name: "Recording saved" })).toBeVisible({ timeout: 100_000 });
   await expect(page.getByText("10 of 10 light pulses answered")).toBeVisible();
   const sessionId = (await page.locator("section[aria-label='Recording summary'] code").textContent())!;
 
-  const events: Event[] = (await (await request.get(`http://localhost:5173/api/sessions/${sessionId}/events`)).json()).events;
+  const unauthorised = await request.get(`http://localhost:5173/api/sessions/${sessionId}/events`);
+  expect(unauthorised.status()).toBe(401); // scores never reach someone who only knows the session id
+  const events: Event[] = (
+    await (await request.get(`http://localhost:5173/api/sessions/${sessionId}/events`, { headers: { "X-Session-Token": token } })).json()
+  ).events;
   expect(events.map((e) => e.seq)).toEqual(events.map((_, k) => k));
   expect(events[0]!.type).toBe("session.created");
   const stages = events.filter((e) => e.type === "stage.changed").map((e) => e.payload.stage);

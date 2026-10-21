@@ -160,6 +160,8 @@ export interface SessionCreated {
   pair_code: string;
   /** path of the session WebSocket, e.g. /ws/session/<id> */
   ws_url: string;
+  /** session console token: needed for the presenter and lab roles, the events catch-up and /next; never given to the customer, who only gets the session id from pairing */
+  token: string;
 }
 
 /** One frames.jsonl line; the client sends these as the `meta` part of each frames batch. */

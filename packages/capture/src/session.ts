@@ -127,7 +127,7 @@ export class CaptureSession {
         await this.api.postDetails(sessionId, details);
       })();
 
-      this.socket = await CaptureSocket.connect(created.ws_url, this.opts.role);
+      this.socket = await CaptureSocket.connect(created.ws_url, this.opts.role, created.token);
       this.socket.onMessage = (msg, receivedAt) => void this.handle(msg, receivedAt).catch((e) => this.fail(e));
       this.socket.onClose = () => {
         if (this.state.phase === "running") this.fail("Connection to the server closed.");

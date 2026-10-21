@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from starlette.websockets import WebSocketDisconnect
 
-from tests.conftest import create_session
+from tests.conftest import create_session, get_events
 
 
 def bundle(client, sid: str) -> Path:
@@ -103,7 +103,7 @@ def test_probe_rows_are_also_emitted_as_events(client) -> None:
     s = create_session(client)
     sid = s["session_id"]
     client.post(f"/api/sessions/{sid}/probe", content=b'{"step": 0}\n{"step": 1}\n')
-    events = client.get(f"/api/sessions/{sid}/events").json()["events"]
+    events = get_events(client, sid)
     assert [e["payload"] for e in events if e["type"] == "probe.step"] == [{"step": 0}, {"step": 1}]
 
 
@@ -134,18 +134,39 @@ def test_an_unknown_session_socket_is_closed_with_4404(client) -> None:
 
 def test_garbage_websocket_messages_are_ignored(client) -> None:
     s = create_session(client)
-    with client.websocket_connect(f"{s['ws_url']}?role=presenter") as ws:
+    with client.websocket_connect(f"{s['ws_url']}?role=presenter&token={s['token']}") as ws:
         for text in ["not json", "[1, 2]", "42", '{"type": "ack"}', '{"type": "nonsense", "x": 1}']:
             ws.send_text(text)
         ws.close()
     assert client.get("/api/health").status_code == 200
 
 
-@pytest.mark.xfail(strict=True, reason="events and presenter/lab sockets are unauthenticated; pairing gives the id")
 def test_a_paired_customer_cannot_read_scores_through_events_or_a_presenter_socket(client) -> None:
     s = create_session(client, product="demo", mode="live")
     sid = client.post(f"/api/pair/{s['pair_code']}").json()["session_id"]  # all the customer is given
-    assert client.get(f"/api/sessions/{sid}/events").status_code in (401, 403)
-    with pytest.raises(WebSocketDisconnect):
-        with client.websocket_connect(f"/ws/session/{sid}?role=presenter") as ws:
-            ws.receive_json()
+    assert client.get(f"/api/sessions/{sid}/events").status_code == 401
+    assert client.get(f"/api/sessions/{sid}/events", headers={"X-Session-Token": "guess"}).status_code == 401
+    assert client.post(f"/api/sessions/{sid}/next").status_code == 401
+    for role in ("presenter", "lab"):
+        with pytest.raises(WebSocketDisconnect) as e:
+            with client.websocket_connect(f"/ws/session/{sid}?role={role}") as ws:
+                ws.receive_json()
+        assert e.value.code == 4401
+    with client.websocket_connect(f"/ws/session/{sid}?role=customer"):
+        pass  # the customer role still works without it
+
+
+def test_the_creator_token_opens_events_and_the_presenter_socket(client) -> None:
+    s = create_session(client)
+    assert s["token"] and s["token"] != s["session_id"]
+    assert client.get(f"/api/sessions/{s['session_id']}/events", params={"token": s["token"]}).status_code == 200
+    with client.websocket_connect(f"{s['ws_url']}?role=presenter&token={s['token']}") as ws:
+        assert ws.receive_json()["type"] == "event"
+
+
+def test_tokens_differ_per_session_and_survive_a_restart(make_client, tmp_path) -> None:
+    first = make_client(data_dir=tmp_path / "shared")
+    a, b = create_session(first), create_session(first)
+    assert a["token"] != b["token"]
+    second = make_client(data_dir=tmp_path / "shared")
+    assert second.get(f"/api/sessions/{a['session_id']}/events", params={"token": a["token"]}).status_code == 200

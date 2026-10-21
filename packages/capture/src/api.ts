@@ -80,10 +80,12 @@ export class CaptureSocket {
     this.heartbeat = setInterval(() => this.send({ type: "heartbeat", t: now() }), 2000);
   }
 
-  static connect(wsPath: string, role: CaptureRole): Promise<CaptureSocket> {
+  /** `token` (SessionCreated.token) is required for the lab role, which receives every event; customers have none. */
+  static connect(wsPath: string, role: CaptureRole, token?: string): Promise<CaptureSocket> {
     const url = new URL(wsPath, location.href);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
     url.searchParams.set("role", role);
+    if (token && role === "lab") url.searchParams.set("token", token);
     const ws = new WebSocket(url);
     return new Promise((resolve, reject) => {
       ws.onopen = () => resolve(new CaptureSocket(ws));

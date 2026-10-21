@@ -72,7 +72,7 @@ export class MockServer {
       mkdirSync(path.join(this.bundle, "frames"), { recursive: true });
       mkdirSync(path.join(this.bundle, "fp"), { recursive: true });
       await route.fulfill({
-        json: { session_id: this.sessionId, pair_code: "ABC123", ws_url: `/ws/session/${this.sessionId}` },
+        json: { session_id: this.sessionId, pair_code: "ABC123", ws_url: `/ws/session/${this.sessionId}`, token: "mock-token" },
       });
     });
     await page.route("**/api/sessions/*/details", async (route) => {

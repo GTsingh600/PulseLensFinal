@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
+import hmac
 import random
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -259,7 +261,21 @@ class Hub:
         rt = self.runtime(sid)
         assert rt is not None
         rt.bus.emit("session.created", {"mode": body.mode, "scenario": body.scenario, "product": body.product})
-        return SessionCreated(session_id=sid, pair_code=self.pairing.issue(sid), ws_url=f"/ws/session/{sid}")
+        return SessionCreated(
+            session_id=sid,
+            pair_code=self.pairing.issue(sid),
+            ws_url=f"/ws/session/{sid}",
+            token=self.console_token(sid),
+        )
+
+    def console_token(self, session_id: str) -> str:
+        """HMAC of the session id: the creator's key to scores and events. Needs no storage, survives a restart,
+        and cannot be derived from the session id the customer learns by pairing."""
+        mac = hmac.new(self.settings.pulse_hmac_secret.encode(), f"console|{session_id}".encode(), hashlib.sha256)
+        return mac.hexdigest()[:32]
+
+    def token_ok(self, session_id: str, token: str | None) -> bool:
+        return bool(token) and hmac.compare_digest(token.encode(), self.console_token(session_id).encode())
 
     def runtime(self, session_id: str) -> SessionRuntime | None:
         """The live runtime, loaded from disk for sessions created before a restart; None when unknown."""

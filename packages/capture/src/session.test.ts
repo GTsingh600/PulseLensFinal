@@ -91,7 +91,7 @@ const { CaptureSession } = await import("./session");
 
 function fakeApi(overrides: Record<string, unknown> = {}) {
   return {
-    createSession: vi.fn(async () => ({ session_id: "s1", ws_url: "/ws/session/s1", pair_code: null })),
+    createSession: vi.fn(async () => ({ session_id: "s1", ws_url: "/ws/session/s1", pair_code: null, token: "tok" })),
     postDetails: vi.fn(async () => undefined),
     postFrames: vi.fn(async () => undefined),
     finalize: vi.fn(async () => undefined),

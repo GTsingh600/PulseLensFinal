@@ -70,6 +70,14 @@ describe("CaptureSocket", () => {
     expect(ws.url.searchParams.get("role")).toBe("customer");
   });
 
+  it("sends the session token for the lab role only, never for a customer", async () => {
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    void CaptureSocket.connect("/ws/session/s1", "lab", "tok");
+    expect(FakeWebSocket.last.url.searchParams.get("token")).toBe("tok");
+    void CaptureSocket.connect("/ws/session/s1", "customer", "tok");
+    expect(FakeWebSocket.last.url.searchParams.has("token")).toBe(false);
+  });
+
   it("rejects when the socket fails to open", async () => {
     vi.stubGlobal("WebSocket", FakeWebSocket);
     const p = CaptureSocket.connect("/ws/session/s1", "lab");

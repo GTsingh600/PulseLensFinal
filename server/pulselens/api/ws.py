@@ -15,6 +15,8 @@ router = APIRouter()
 CLOSE_UNKNOWN_SESSION = 4404
 CLOSE_BAD_ROLE = 4400
 CLOSE_CAPTURE_TAKEN = 4409
+CLOSE_NEEDS_TOKEN = 4401
+TOKEN_ROLES = ("presenter", "lab")  # roles that receive every event, scores included
 
 
 @router.websocket("/ws/session/{session_id}")
@@ -28,6 +30,9 @@ async def session_socket(ws: WebSocket, session_id: str) -> None:
         return
     if role not in ROLES or (from_param is not None and not from_param.isdigit()):
         await ws.close(CLOSE_BAD_ROLE)
+        return
+    if role in TOKEN_ROLES and not hub.token_ok(session_id, ws.query_params.get("token")):
+        await ws.close(CLOSE_NEEDS_TOKEN)
         return
     await ws.accept()
     conn = Connection(ws, role)  # type: ignore[arg-type]
