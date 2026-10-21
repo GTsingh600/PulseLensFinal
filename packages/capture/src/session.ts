@@ -19,6 +19,7 @@ import { detectChannel, secureContextError } from "./env";
 import { FrameGrabber, type GrabberSource } from "./grabber";
 import { LightOverlay, LightPulseExecutor } from "./light";
 import { lockForLight } from "./lock";
+import { nativeModes, runProbe } from "./probe";
 import { FrameUploader } from "./uploader";
 
 export type CapturePhase = "idle" | "starting" | "running" | "finalizing" | "done" | "error";
@@ -79,6 +80,8 @@ export class CaptureSession {
   /** exposure and white balance frozen for the light suite (lock.ts); pulses wait for it */
   private lockReady: Promise<void> | null = null;
   private unlock: (() => Promise<void>) | null = null;
+  /** one-shot waiters for the next grabbed frame's time (the mode-switch probe) */
+  private frameWaiters: ((t: number) => void)[] = [];
 
   constructor(private readonly opts: CaptureSessionOptions) {
     this.api = opts.api ?? new CaptureApi();
@@ -116,6 +119,7 @@ export class CaptureSession {
         onFrame: (f) => {
           this.uploader!.push(f);
           firstFrame();
+          for (const w of this.frameWaiters.splice(0)) w(f.meta.t);
         },
       });
       this.grabber.start();
@@ -154,8 +158,9 @@ export class CaptureSession {
         this.set({ stage: msg.stage, promptKey: msg.prompt ?? null });
         if (msg.stage === "camera") {
           await this.detailsPosted;
+          const probe = await this.probe();
           await this.postFpsUpdate();
-          this.socket?.send({ type: "stage.done", stage: "camera", data: { details_posted: true } });
+          this.socket?.send({ type: "stage.done", stage: "camera", data: { details_posted: true, probe } });
         } else if (msg.stage === "coach") {
           await this.coach();
         } else if (msg.stage === "pulses") {
@@ -173,6 +178,43 @@ export class CaptureSession {
         return this.finish(msg.key);
       case "event":
         return; // lab role: the event stream, for screens that show it (M2.2 live plots)
+    }
+  }
+
+  /** SPEC 7.3 mode-switch probe; posts probe.jsonl and the native modes found. Never fails the session. */
+  private async probe(): Promise<{ requests: number; accepted: number } | { error: string }> {
+    if (!this.cam || !this.state.sessionId) return { error: "no camera" };
+    const video = this.opts.video;
+    const sessionId = this.state.sessionId;
+    const previous = this.state.promptKey;
+    this.set({ promptKey: "prompt.probe" });
+    try {
+      const rows = await runProbe({
+        track: this.cam.track,
+        videoSize: () => [video.videoWidth, video.videoHeight],
+        nextFrame: (timeoutMs) =>
+          new Promise((resolve) => {
+            const timer = setTimeout(() => resolve(null), timeoutMs);
+            this.frameWaiters.push((t) => {
+              clearTimeout(timer);
+              resolve(t);
+            });
+          }),
+        framesSeen: () => this.grabber?.stats().frames ?? 0,
+        dropped: () => video.getVideoPlaybackQuality?.().droppedVideoFrames ?? null,
+        now: () => performance.now(),
+        sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+        resizeModeSupported: "resizeMode" in (navigator.mediaDevices.getSupportedConstraints?.() ?? {}),
+      });
+      await this.api.postProbe(sessionId, rows);
+      const native_modes = nativeModes(rows);
+      if (this.state.details) this.set({ details: { ...this.state.details, native_modes } });
+      await this.api.postDetails(sessionId, { native_modes });
+      return { requests: rows.filter((r) => !r.skipped).length, accepted: rows.filter((r) => r.ok).length };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) };
+    } finally {
+      this.set({ promptKey: previous });
     }
   }
 

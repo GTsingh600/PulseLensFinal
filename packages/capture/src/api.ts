@@ -36,6 +36,15 @@ export class CaptureApi {
     return this.json(`/api/sessions/${sessionId}/details`, details);
   }
 
+  /** probe.jsonl rows (SPEC 7.3), one JSON object per line. */
+  postProbe(sessionId: string, rows: object[]): Promise<void> {
+    return this.request(`/api/sessions/${sessionId}/probe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-ndjson" },
+      body: rows.map((r) => `${JSON.stringify(r)}\n`).join(""),
+    });
+  }
+
   postFrames(sessionId: string, body: FormData): Promise<void> {
     return this.request(`/api/sessions/${sessionId}/frames`, { method: "POST", body });
   }

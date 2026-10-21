@@ -81,6 +81,11 @@ vi.mock("./coaching", () => ({
     return [round];
   }),
 }));
+const PROBE_ROW = { step: 0, request: { width: 1280, height: 720, frameRate: 30 }, ok: true, skipped: false, first_match_t: 1250 };
+vi.mock("./probe", () => ({
+  runProbe: vi.fn(async () => [PROBE_ROW, { ...PROBE_ROW, step: 2, ok: false, first_match_t: null }]),
+  nativeModes: () => [{ width: 1280, height: 720, frameRate: 30 }],
+}));
 vi.mock("./details", () => ({
   collectCameraDetails: vi.fn(async () => ({ channel: "desktop_browser", browser: "Brave 155" })),
   detectGyro: vi.fn(async () => "absent"),
@@ -93,6 +98,7 @@ function fakeApi(overrides: Record<string, unknown> = {}) {
   return {
     createSession: vi.fn(async () => ({ session_id: "s1", ws_url: "/ws/session/s1", pair_code: null, token: "tok" })),
     postDetails: vi.fn(async () => undefined),
+    postProbe: vi.fn(async () => undefined),
     postFrames: vi.fn(async () => undefined),
     finalize: vi.fn(async () => undefined),
     ...overrides,
@@ -147,8 +153,13 @@ describe("CaptureSession", () => {
     const ws = sockets[0]!;
 
     await ws.push({ type: "stage", stage: "camera", prompt: null });
-    expect(ws.sent.at(-1)).toEqual({ type: "stage.done", stage: "camera", data: { details_posted: true } });
-    expect(api.postDetails).toHaveBeenCalledTimes(2); // full details, then the fps update
+    expect(ws.sent.at(-1)).toEqual({
+      type: "stage.done", stage: "camera", data: { details_posted: true, probe: { requests: 2, accepted: 1 } },
+    });
+    expect(api.postProbe).toHaveBeenCalledWith("s1", expect.arrayContaining([expect.objectContaining({ step: 0 })]));
+    expect(api.postDetails).toHaveBeenCalledWith("s1", { native_modes: [{ width: 1280, height: 720, frameRate: 30 }] });
+    expect(s.state.details?.native_modes).toHaveLength(1);
+    expect(api.postDetails).toHaveBeenCalledTimes(3); // full details, native modes, then the fps update
 
     await ws.push({ type: "stage", stage: "coach", prompt: null });
     expect(ws.sent.at(-1)).toMatchObject({ type: "stage.done", stage: "coach", data: { face_detector: false } });
