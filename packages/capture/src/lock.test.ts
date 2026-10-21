@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { lockConstraints, lockForLight, MAX_EXPOSURE_TIME } from "./lock";
+import { LOCK_BELOW_FPS, lockConstraints, lockForLight, MAX_EXPOSURE_TIME } from "./lock";
 
 // The G1 webcam (USB2.0 HD UVC WebCam): manual exposure 2.4..5000 (100 µs units) and manual white balance.
 const G1_CAPS = {
@@ -14,28 +14,37 @@ function fakeTrack(caps: object, settings: object, apply = vi.fn(async () => und
 }
 
 describe("lockConstraints", () => {
-  it("freezes exposure at no more than 33 ms and white balance at the current temperature", () => {
-    const plan = lockConstraints(G1_CAPS, { exposureTime: 1250, colorTemperature: 4600 })!;
+  it("at 10 fps locks exposure at 33 ms, ignoring the stale 15.6 ms the camera reports, and white balance", () => {
+    const plan = lockConstraints(G1_CAPS, { exposureTime: 156.25, colorTemperature: 4600 }, 10.4)!;
     expect(plan.set).toEqual({ exposureMode: "manual", exposureTime: MAX_EXPOSURE_TIME, whiteBalanceMode: "manual", colorTemperature: 4600 });
     expect(plan.lock).toEqual({ exposure: true, white_balance: true, exposure_time: MAX_EXPOSURE_TIME, error: null });
   });
 
-  it("keeps a shorter exposure the camera already chose, inside the camera's range", () => {
-    expect(lockConstraints(G1_CAPS, { exposureTime: 156.25 })!.lock.exposure_time).toBe(156.25);
-    expect(lockConstraints({ ...G1_CAPS, exposureTime: { min: 200, max: 5000 } }, { exposureTime: 50 })!.lock.exposure_time).toBe(200);
+  it("leaves exposure alone when the camera already runs at full rate (bright room), locking only white balance", () => {
+    const plan = lockConstraints(G1_CAPS, { colorTemperature: 4600 }, 30)!;
+    expect(plan.lock).toMatchObject({ exposure: false, white_balance: true });
+    expect(plan.set).not.toHaveProperty("exposureMode");
+    expect(lockConstraints(G1_CAPS, {}, LOCK_BELOW_FPS)).toBeNull(); // no temperature to hold, no slowdown
   });
 
-  it("locks only what the camera offers, and nothing on cameras without manual modes", () => {
-    expect(lockConstraints({ exposureMode: ["continuous", "manual"], exposureTime: { min: 1, max: 1000 } }, {})!.lock).toMatchObject({ exposure: true, white_balance: false });
-    expect(lockConstraints({ exposureMode: ["continuous"] }, { exposureTime: 100 })).toBeNull();
-    expect(lockConstraints({}, {})).toBeNull(); // Safari and Firefox report no controls
+  it("does not lock exposure before the frame rate is known", () => {
+    expect(lockConstraints(G1_CAPS, {}, null)).toBeNull();
+  });
+
+  it("stays inside the camera's range", () => {
+    expect(lockConstraints({ ...G1_CAPS, exposureTime: { min: 1, max: 200 } }, {}, 10)!.lock.exposure_time).toBe(200);
+  });
+
+  it("locks nothing on cameras without manual modes", () => {
+    expect(lockConstraints({ exposureMode: ["continuous"] }, { exposureTime: 100 }, 10)).toBeNull();
+    expect(lockConstraints({}, {}, 10)).toBeNull(); // Safari and Firefox report no controls
   });
 });
 
 describe("lockForLight", () => {
   it("applies the lock, then restores continuous modes", async () => {
     const { track, apply } = fakeTrack(G1_CAPS, { exposureTime: 156.25, colorTemperature: 4600 });
-    const { lock, restore } = await lockForLight(track);
+    const { lock, restore } = await lockForLight(track, 10.4);
     expect(lock).toMatchObject({ exposure: true, white_balance: true });
     expect(apply).toHaveBeenLastCalledWith({ advanced: [expect.objectContaining({ exposureMode: "manual" })] });
     await restore();
@@ -45,7 +54,7 @@ describe("lockForLight", () => {
   it("reports a refused lock instead of throwing, and restores nothing", async () => {
     const apply = vi.fn(async () => Promise.reject(new DOMException("not supported", "OverconstrainedError")));
     const { track } = fakeTrack(G1_CAPS, { colorTemperature: 4600 }, apply);
-    const { lock, restore } = await lockForLight(track);
+    const { lock, restore } = await lockForLight(track, 10.4);
     expect(lock).toMatchObject({ exposure: false, white_balance: false });
     expect(lock!.error).toContain("not supported");
     await restore();
@@ -54,6 +63,6 @@ describe("lockForLight", () => {
 
   it("does nothing on a camera without getCapabilities", async () => {
     const track = { getSettings: () => ({}), applyConstraints: vi.fn() } as unknown as MediaStreamTrack;
-    expect((await lockForLight(track)).lock).toBeNull();
+    expect((await lockForLight(track, 10)).lock).toBeNull();
   });
 });

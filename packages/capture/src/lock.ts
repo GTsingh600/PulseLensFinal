@@ -14,6 +14,8 @@ export type CameraLock = {
 
 /** 33.3 ms: the longest exposure that still allows 30 fps, in exposureTime units of 100 µs. */
 export const MAX_EXPOSURE_TIME = 333;
+/** Below this measured frame rate auto exposure is stretching frames, so exposure gets locked. */
+export const LOCK_BELOW_FPS = 27;
 
 type Range = { min?: number; max?: number };
 type Caps = { exposureMode?: string[]; exposureTime?: Range; whiteBalanceMode?: string[]; colorTemperature?: Range };
@@ -21,12 +23,20 @@ type Settings = { exposureTime?: number; colorTemperature?: number };
 
 const clamp = (x: number, r: Range | undefined) => Math.min(r?.max ?? x, Math.max(r?.min ?? x, x));
 
-/** The constraint set that freezes exposure (at most 33 ms) and white balance, or null when neither is offered. */
-export function lockConstraints(caps: Caps, settings: Settings): { set: MediaTrackConstraintSet; lock: CameraLock } | null {
+/**
+ * The constraint set that freezes white balance and, only when auto exposure is slowing the camera (measured fps
+ * below 27), exposure at 33 ms; null when nothing applies. The exposureTime a camera reports in continuous mode is
+ * not trusted: at G1 it said 15.6 ms while frames came every 96 ms, and locking at 15.6 ms made the face 10x darker.
+ */
+export function lockConstraints(
+  caps: Caps,
+  settings: Settings,
+  fps: number | null,
+): { set: MediaTrackConstraintSet; lock: CameraLock } | null {
   const set: Record<string, unknown> = {};
   const lock: CameraLock = { exposure: false, white_balance: false, exposure_time: null, error: null };
-  if (caps.exposureMode?.includes("manual") && caps.exposureTime) {
-    const t = clamp(Math.min(settings.exposureTime ?? MAX_EXPOSURE_TIME, MAX_EXPOSURE_TIME), caps.exposureTime);
+  if (caps.exposureMode?.includes("manual") && caps.exposureTime && fps !== null && fps < LOCK_BELOW_FPS) {
+    const t = clamp(MAX_EXPOSURE_TIME, caps.exposureTime);
     Object.assign(set, { exposureMode: "manual", exposureTime: t });
     Object.assign(lock, { exposure: true, exposure_time: t });
   }
@@ -38,11 +48,14 @@ export function lockConstraints(caps: Caps, settings: Settings): { set: MediaTra
 }
 
 /** Freezes the camera for the light suite; returns what was locked and a restore function (never throws). */
-export async function lockForLight(track: MediaStreamTrack): Promise<{ lock: CameraLock | null; restore: () => Promise<void> }> {
+export async function lockForLight(
+  track: MediaStreamTrack,
+  fps: number | null,
+): Promise<{ lock: CameraLock | null; restore: () => Promise<void> }> {
   const none = { lock: null, restore: async () => undefined };
   let plan: ReturnType<typeof lockConstraints>;
   try {
-    plan = lockConstraints((track.getCapabilities?.() ?? {}) as Caps, (track.getSettings?.() ?? {}) as Settings);
+    plan = lockConstraints((track.getCapabilities?.() ?? {}) as Caps, (track.getSettings?.() ?? {}) as Settings, fps);
   } catch {
     return none; // getCapabilities throws on some browsers (Firefox)
   }

@@ -200,7 +200,7 @@ export class CaptureSession {
     if (this.lockReady || !this.cam) return;
     const track = this.cam.track;
     this.lockReady = (async () => {
-      const { lock, restore } = await lockForLight(track);
+      const { lock, restore } = await lockForLight(track, this.grabber?.stats().fpsMedian ?? null);
       this.unlock = restore;
       if (!lock || !this.state.sessionId) return;
       if (this.state.details) this.set({ details: { ...this.state.details, camera_lock: lock } });
