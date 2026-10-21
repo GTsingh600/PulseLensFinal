@@ -32,8 +32,8 @@ camera.duplicates:
 camera.noise_curve:
   min_noise_mid: 0.0015   # temporal noise sigma at mid-grey (linear) below which the video is too clean for a sensor
 camera.fingerprint:
-  min_pce: 200            # PCE between odd- and even-frame fingerprints. Was 50 (PRNU work treats ~60 as a match);
-                          # raised on G1 evidence: Chromium's fake camera scored 97, the D01 webcam 459-1567
+  min_pce: 50             # PCE between odd- and even-frame fingerprints; PRNU work treats ~60 as a match. 200 was
+                          # tried (Chromium's fake camera scored 97) but failed a genuine D01 session at 174
 camera.modes:
   fov_tolerance: 0.05     # relative change of scale that counts as "the view moved"
 camera.claim_mismatch:

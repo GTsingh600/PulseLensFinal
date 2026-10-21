@@ -4,8 +4,9 @@ The flash reaches both in the same frame, so the device's own delay cancels out.
 face, so its echo comes later or weaker than the neck's. Per colour pulse: Δ = t_face - t_neck, each timed at half
 of its own echo height (constant fraction, so a weak face and a strong shirt are not a frame apart), and the
 amplitude ratio A_face / A_neck.
-- A neck echo with a silent face (never above its threshold) on most measured pulses is a strong fail (rule). A face
-  that rose above its threshold without holding there is a weak echo, not silence: that pulse counts for neither.
+- A clear neck echo with a silent face on most measured pulses is a strong fail (rule). Silent means the face never
+  crossed its threshold although that threshold was low enough to hear even the weakest real echo (a quarter of the
+  neck's); a face too noisy to tell counts for neither side, and a weak face echo counts as the face answering.
 - Abstains when the neck is out of frame, saturated, or its echo is too weak to compare.
 - Score = |median Δ - center| / scale + ratio deviation beyond its tolerance; fails above tau.
 """
@@ -68,23 +69,30 @@ def run(ctx: AnalysisContext) -> list[CheckResult]:
         ]
 
     a_min = float(ctx.thresholds.echo["a_min"])
-    lags, ratios, neck_only, face_only, measured, weak = [], [], 0, 0, 0, 0
+    lags, ratios, neck_only, face_only, measured, weak, unclear = [], [], 0, 0, 0, 0, 0
+    ratio_floor = math.exp(-float(params["ratio_log_tolerance"]))  # the weakest face/neck ratio a real face shows
     for p in pulses:
         f = echo_onset(ctx.t, skin, p, region="skin", a_min=a_min)
         n = echo_onset(ctx.t, neck, p, region="neck", a_min=a_min)
         if not (f.valid and n.valid):
             continue
         if n.onset_cf_ms is not None and f.onset_cf_ms is not None:
+            measured += 1  # the face answered this flash, even if too weakly to time
             if not (_clear(f, params) and _clear(n, params)):
                 weak += 1  # both echoed, but too close to the noise to time against each other
                 continue
-            measured += 1
             lags.append(f.onset_cf_ms - n.onset_cf_ms)
             if f.amplitude and n.amplitude and f.amplitude > 0 and n.amplitude > 0:
                 ratios.append(f.amplitude / n.amplitude)
-        elif n.onset_ms is not None and (f.peak is None or f.peak < (f.threshold or 0.0)):
-            measured += 1
-            neck_only += 1
+        elif n.onset_ms is not None and _clear(n, params):
+            # "Silent" only if the face was quiet enough that even the weakest real echo (the neck's amplitude
+            # times ratio_floor) would have crossed its threshold; otherwise the face was just too noisy to tell.
+            audible = (f.threshold or 0.0) <= ratio_floor * (n.amplitude or 0.0)
+            if audible and (f.peak is None or f.peak < (f.threshold or 0.0)):
+                measured += 1
+                neck_only += 1
+            else:
+                unclear += 1
         elif f.onset_ms is not None and n.onset_ms is None:
             face_only += 1
 
@@ -94,6 +102,7 @@ def run(ctx: AnalysisContext) -> list[CheckResult]:
         "n_neck_only": neck_only,
         "n_face_only": face_only,
         "n_weak": weak,
+        "n_unclear": unclear,
         "neck_coverage": neck_cov,
     }
     quality = measured / len(pulses)

@@ -73,3 +73,8 @@ def test_below_12fps_the_optical_checks_abstain(check, fps: float) -> None:
     r = check.run(ctx(light_session(fps=fps, seed=1)))[0]
     assert r.status == "abstain", r.reason
     assert "fps" in r.reason or "frame rate" in r.reason
+
+
+def test_a_redrawn_face_with_quiet_pixels_is_still_a_strong_fail() -> None:
+    r = optical_face_neck.run(ctx(light_session(fps=15.0, face_echo=False, noise=0.0015, seed=3)))[0]
+    assert r.status == "fail" and r.threshold_source == "rule"
