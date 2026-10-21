@@ -50,6 +50,17 @@ Ticked = acceptance checks in `docs/BUILD_PLAN.md` pass. Newest notes first in e
 - [ ] M5.4 [C] Purge script
 
 ## Needs a human
+- **Attack recordings (only the people recorded consent; existing tools only, CLAUDE.md rule 7).** Lab Record → **Attack** → pick the tool. One genuine session on the same device and light first, then each attack below twice. Then `python -m pulselens.cli analyze data/sessions/<id>` and note the statuses. Only the checks marked *now* exist; the rest arrive with M2.3–M2.5 and are listed so the recordings are reusable.
+
+  | Attack (tool in the form) | How to record it | Expected now | Expected later |
+  |---|---|---|---|
+  | Phone screen replay (`screen_replay`) | play your own earlier session video on a phone held in front of the webcam | `optical.light.delay` fails (no echo) | `camera.noise_curve`, `content.hand` |
+  | Virtual camera (`premade_injection`) | OBS Studio → OBS Virtual Camera playing your own video; pick it in the browser | `optical.light.delay` fails | `camera.modes`, `camera.noise_curve`, `camera.label` |
+  | Live face swap (`liveswap`) | Deep-Live-Cam into a virtual camera, a consenting teammate's face | `optical.face_neck` fails (face lags neck) | `camera.*`, `content.fingerprint_hole` |
+  | Driven portrait (`liveportrait`) | LivePortrait driven by your own face | `optical.light.delay` fails or `face_neck` fails | `content.*` |
+  | Emulator (`emulator`) | Android Emulator camera in the emulator's browser | — | `camera.env`, `camera.modes` |
+
+  A glossy phone screen can reflect the laptop's flash, so a screen replay may show a real-looking echo; that is what `face_neck` and the camera checks are for. Record what happens rather than what the table expects. The local replay e2e (`make e2e-brave`, after `python scripts/bundle_to_y4m.py data/sessions/<your genuine id>`) is the same attack without a phone: on session `ed0a0c434e62b495` light delay failed with 0 of 6 echoes and face-vs-neck abstained.
 - **Gate G1 (H6): device run of Lab Record.** Everything it needs is on branch `trackC` (it contains tracks A and B too). Merge `trackC` into `main` first (`git switch main && git merge --ff-only trackC`).
   1. On the team laptop: `git pull`, `make setup`, then in three terminals `make server`, `make lab`, `make tunnel`. Note the `https://….trycloudflare.com` URL printed for :5173.
   2. Devices: budget Android (Chrome), mid-range Android (Chrome), iPhone (Safari), laptop (Chrome). Give each a device code (D01–D04) on the paper sheet.

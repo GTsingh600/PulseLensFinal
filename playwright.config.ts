@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import path from "node:path";
-import { E2E_DATA_DIR } from "./e2e/support/paths";
+import { E2E_DATA_DIR, REPLAY_Y4M } from "./e2e/support/paths";
 
 // Native separators and quotes: on Windows the command runs through cmd.exe.
 const venvPython = `"${path.resolve(process.platform === "win32" ? ".venv/Scripts/python.exe" : ".venv/bin/python")}"`;
@@ -27,6 +27,7 @@ export default defineConfig({
   projects: [
     {
       name: "chromium-fake-camera",
+      testIgnore: /replay\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         permissions: ["camera"],
@@ -35,12 +36,36 @@ export default defineConfig({
     },
     {
       name: "brave-fake-camera",
+      testIgnore: /replay\.spec\.ts/,
       use: {
         // Brave's own user agent, not the Chrome preset's, so the Camera card reports the real browser.
         viewport: { width: 1280, height: 720 },
         permissions: ["camera"],
         headless: false,
         launchOptions: { executablePath: bravePath, args: fakeCamera },
+      },
+    },
+    {
+      // The installed Google Chrome, headed: what most customers run. No download (channel uses the system install).
+      name: "chrome-fake-camera",
+      testIgnore: /replay\.spec\.ts/,
+      use: {
+        viewport: { width: 1280, height: 720 },
+        permissions: ["camera"],
+        headless: false,
+        channel: "chrome",
+        launchOptions: { args: fakeCamera },
+      },
+    },
+    {
+      // Local replay attack: a recorded session as the camera (scripts/bundle_to_y4m.py). Skipped without the file.
+      name: "brave-replay",
+      testMatch: /replay\.spec\.ts/,
+      use: {
+        viewport: { width: 1280, height: 720 },
+        permissions: ["camera"],
+        headless: false,
+        launchOptions: { executablePath: bravePath, args: [...fakeCamera, `--use-file-for-fake-video-capture=${REPLAY_Y4M}`] },
       },
     },
   ],

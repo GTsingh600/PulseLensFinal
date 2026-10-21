@@ -25,7 +25,7 @@ function fakeVideo(w = 640, h = 480) {
 }
 
 const encoder = {
-  encode: vi.fn(async (_src: CanvasImageSource, _w: number, _h: number, _q: number) => new Blob()),
+  encode: vi.fn<(src: CanvasImageSource, w: number, h: number, quality: number) => Promise<Blob>>(async () => new Blob()),
   close: vi.fn(),
 };
 
