@@ -338,7 +338,10 @@ All of these use per-frame mean linear RGB of each region and the pulse log.
 2. Expected direction `d_c` = the pulse colour's chromaticity minus neutral.
 3. Projection `p(t) = (x(t) - mean_pre) · d_c`, with the baseline over the 300 ms before `painted`.
 4. Onset = the first two consecutive frames above `max(4σ_pre, a_min)` within 700 ms, interpolated to the crossing.
-5. The pulse colour is the one the client painted (`shown` in pulses.jsonl). `d_c` is normalised, so `p` and `a_min` are in chromaticity units. Interpolating across the exposure ramp makes onsets up to one frame early; the bias is constant per device, so the calibrated centre absorbs it, and it cancels in `face_neck`.
+5. An onset whose hold amplitude (median over 25–75% of the pulse after the crossing) stays at or below the threshold is noise that crossed twice, not an echo.
+6. **Constant-fraction onset** (`onset_cf_ms`): the same rising edge timed where it reaches half of its own hold amplitude. `face_neck` compares these, because a fixed threshold is crossed later on a weak echo than a strong one (up to a frame). `face_neck` times a pulse only when both echoes reach `min_snr` (2) times their own threshold; weaker pairs count for neither side.
+7. Every optical check abstains below `quality.min_fps` (12 fps, §7.6).
+8. The pulse colour is the one the client painted (`shown` in pulses.jsonl). `d_c` is normalised, so `p` and `a_min` are in chromaticity units. Interpolating across the exposure ramp makes onsets up to one frame early; the bias is constant per device, so the calibrated centre absorbs it, and it cancels in `face_neck`.
 
 | Check | Algorithm | Score |
 |---|---|---|

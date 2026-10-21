@@ -25,6 +25,7 @@ def build_context(
     thresholds: Thresholds,
     profile: str | None = None,
     quality_min: float = 0.5,
+    min_fps: float = 12.0,
 ) -> AnalysisContext:
     """frames: (frames.jsonl line, RGB uint8 image or None, landmarks or None) in capture order."""
     times: list[float] = []
@@ -51,6 +52,7 @@ def build_context(
         thresholds=thresholds,
         profile=profile,
         quality_min=quality_min,
+        min_fps=min_fps,
     )
 
 

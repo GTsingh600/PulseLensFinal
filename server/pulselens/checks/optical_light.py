@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from pulselens.checks.base import AnalysisContext, abstain, guarded, result
+from pulselens.checks.base import AnalysisContext, abstain, guarded, result, too_slow
 from pulselens.checks.echo import NO_ECHO_MS, echo_onset
 from pulselens.models import CheckResult
 from pulselens.planner.registry import CheckSpec, register
@@ -26,6 +26,8 @@ def run(ctx: AnalysisContext) -> list[CheckResult]:
         return [abstain(SPEC, "No face measurements in this session.")]
     if not pulses:
         return [abstain(SPEC, "No colour pulses were painted in this session.")]
+    if slow := too_slow(SPEC, ctx):
+        return slow
     a_min = float(ctx.thresholds.echo["a_min"])
     onsets = [echo_onset(ctx.t, skin, p, region="skin", a_min=a_min) for p in pulses]
     valid = [o for o in onsets if o.valid]

@@ -89,10 +89,18 @@ class AnalysisContext:
     thresholds: Thresholds
     profile: str | None = None
     quality_min: float = 0.5  # config quality.min
+    min_fps: float = 12.0  # config quality.min_fps: below it every check abstains (SPEC 7.6)
 
     @property
     def colour_pulses(self) -> list[Pulse]:
         return [p for p in self.pulses if p.is_colour]
+
+    @property
+    def fps(self) -> float | None:
+        """Median frame rate from the frame times, or None with fewer than 3 frames."""
+        d = np.diff(np.asarray(self.t, dtype=np.float64))
+        d = d[np.isfinite(d) & (d > 0)]
+        return 1000.0 / float(np.median(d)) if len(d) >= 2 else None
 
 
 def clean_features(features: Mapping[str, float | int | None]) -> dict[str, float]:
@@ -135,6 +143,20 @@ def abstain(
     spec: CheckSpec, reason: str, *, quality: float = 0.0, features: Mapping[str, float | int | None] | None = None
 ):
     return result(spec, "abstain", reason, quality=quality, features=features)
+
+
+def too_slow(spec: CheckSpec, ctx: AnalysisContext) -> list[CheckResult] | None:
+    """The SPEC 7.6 floor: below `min_fps` frames are too far apart to time anything, so the check abstains."""
+    fps = ctx.fps
+    if fps is not None and fps < ctx.min_fps:
+        return [
+            abstain(
+                spec,
+                f"The camera delivered {fps:.1f} fps, below the {ctx.min_fps:.0f} fps needed to time the echo.",
+                features={"fps": fps},
+            )
+        ]
+    return None
 
 
 Run = Callable[[AnalysisContext], list[CheckResult]]

@@ -18,5 +18,6 @@ optical.face_neck:
   ratio_log_scale: 0.693       # ln 2 per score unit beyond that
   tau: 3.0                # = calibration.provisional_tau in config.yaml
   min_pairs: 3            # pulses with both echoes needed to judge
+  min_snr: 2.0            # an echo is timed only when its amplitude is at least 2x its own threshold (8 sigma)
   neck_min_coverage: 0.5  # share of the neck box inside the frame
   saturation: 0.95        # linear channel mean above which the neck is clipped

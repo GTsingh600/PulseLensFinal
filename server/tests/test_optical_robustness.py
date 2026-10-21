@@ -31,43 +31,10 @@ def session(fps: float, gain: float, lead: float, noise: float, seed: int, **kw)
     )
 
 
-# Cases the fixed-threshold onset gets wrong today: a weak or strong neck crosses 4 sigma at a different point of
-# its ramp than the face, which shifts the measured lag by up to a frame. To be fixed next; then these sets empty.
-ONSET_BIAS = "fixed-threshold onset shifts with echo amplitude"
-KNOWN_FALSE_FAILS = {
-    (12.0, 0.3, 0.0, 0.003),
-    (12.0, 0.3, 0.3, 0.003),
-    (12.0, 1.0, 0.3, 0.003),
-    (12.0, 3.0, 0.3, 0.0015),
-    (12.0, 3.0, 0.3, 0.003),
-    (15.0, 0.3, 0.0, 0.0015),
-    (15.0, 0.3, 0.0, 0.003),
-    (15.0, 0.3, 0.3, 0.003),
-    (15.0, 3.0, 0.0, 0.003),
-    (15.0, 3.0, 0.3, 0.003),
-    (24.0, 0.3, 0.0, 0.003),
-    (24.0, 0.3, 0.3, 0.003),
-    (30.0, 0.3, 0.0, 0.003),
-    (30.0, 0.3, 0.3, 0.003),
-}
-KNOWN_MISSED_SWAPS = {
-    (20.0, 0.3, 0.0, 0.003),
-    (24.0, 0.3, 0.0, 0.003),
-    (24.0, 0.3, 0.3, 0.003),
-    (30.0, 0.3, 0.0, 0.003),
-    (30.0, 0.3, 0.3, 0.003),
-}
-
-
-def cases(rows, known):
-    xfail = pytest.mark.xfail(strict=True, reason=ONSET_BIAS)
-    return [pytest.param(*r, marks=xfail) if r in known else r for r in rows]
-
-
 GENUINE = list(itertools.product(FPS, NECK_GAIN, NECK_LEAD_FRAMES, NOISE))
 
 
-@pytest.mark.parametrize(("fps", "gain", "lead", "noise"), cases(GENUINE, KNOWN_FALSE_FAILS))
+@pytest.mark.parametrize(("fps", "gain", "lead", "noise"), GENUINE)
 def test_a_genuine_face_never_fails_face_vs_neck(fps: float, gain: float, lead: float, noise: float) -> None:
     fails = []
     for seed in SEEDS:
@@ -87,19 +54,19 @@ def test_a_genuine_face_never_fails_light_delay(fps: float, gain: float, lead: f
 LAGGED = list(itertools.product([20.0, 24.0, 30.0], NECK_GAIN, NECK_LEAD_FRAMES, NOISE))
 
 
-@pytest.mark.parametrize(("fps", "gain", "lead", "noise"), cases(LAGGED, KNOWN_MISSED_SWAPS))
+@pytest.mark.parametrize(("fps", "gain", "lead", "noise"), LAGGED)
 def test_a_face_redrawn_100ms_late_never_passes(fps: float, gain: float, lead: float, noise: float) -> None:
-    """At 20 fps and up a 100 ms lag never passes; with a clean signal it always fails rather than abstains."""
+    """At 20 fps and up a 100 ms lag never passes. With a neck echo as strong as the face's and moderate noise it
+    always fails; a weak neck near the noise may abstain instead (the SNR gate), which sends it to the agent."""
     statuses = []
     for seed in SEEDS:
         r = optical_face_neck.run(ctx(session(fps, gain, lead, noise, seed, face_lag_ms=100.0)))[0]
         statuses.append(r.status)
     assert "pass" not in statuses, statuses
-    if noise <= 0.0015:
+    if noise <= 0.0015 and gain >= 1.0:
         assert statuses.count("fail") == len(SEEDS), statuses
 
 
-@pytest.mark.xfail(strict=True, reason="SPEC 7.6 frame-rate floor not implemented yet")
 @pytest.mark.parametrize("fps", [8.0, 10.0, 11.5])
 @pytest.mark.parametrize("check", [optical_light, optical_face_neck])
 def test_below_12fps_the_optical_checks_abstain(check, fps: float) -> None:

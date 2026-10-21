@@ -4,7 +4,11 @@
 2. Expected direction d = the pulse colour's chromaticity minus neutral (1/3, 1/3, 1/3), as a unit vector.
 3. Projection p(t) = (x(t) - mean of x over the 300 ms before `painted`) · d.
 4. Onset = the first two consecutive frames above max(4 σ_pre, a_min) within 700 ms of `painted`,
-   interpolated linearly to the threshold crossing.
+   interpolated linearly to the threshold crossing. An echo whose hold amplitude stays below the threshold is noise
+   that happened to cross twice, not an echo.
+5. Constant-fraction onset = the same rising edge timed where it reaches half of its own hold amplitude. A fixed
+   threshold is crossed later on a weak echo than on a strong one, by up to a frame; half-height is not, so
+   face_neck compares these.
 
 Pure: frame times, one region's series and one pulse in; an EchoOnset out. Never raises on bad data.
 """
@@ -32,7 +36,9 @@ class EchoOnset:
     region: str
     valid: bool  # enough clean frames to judge; an invalid pulse is left out, not counted as "no echo"
     onset_ms: float | None = None  # after `painted`; None = no echo
+    onset_cf_ms: float | None = None  # constant-fraction onset (half of `amplitude`), after `painted`
     amplitude: float | None = None  # projection reached during the pulse
+    peak: float | None = None  # highest projection within the window, echo or not
     threshold: float | None = None
     sigma_pre: float | None = None
     reason: str | None = None
@@ -93,15 +99,27 @@ def echo_onset(
     out.t_rel, out.p = t[span] - painted, p[span]
 
     idx = np.flatnonzero(usable & in_window)
+    out.peak = float(p[idx].max()) if len(idx) else None
     for a, b in zip(idx[:-1], idx[1:], strict=False):
         if p[a] > thr and p[b] > thr:
-            prev = np.flatnonzero(usable[:a])
-            t_cross = t[a]
-            if len(prev) and p[prev[-1]] < thr:
-                k = prev[-1]
-                t_cross = t[k] + (thr - p[k]) / (p[a] - p[k]) * (t[a] - t[k])
-            out.onset_ms = float(t_cross - painted)
+            t_cross = _crossing(t, p, usable, a, thr)
             hold = usable & (t >= t_cross + 0.25 * duration) & (t <= t_cross + 0.75 * duration)
-            out.amplitude = float(np.median(p[hold])) if hold.any() else float(p[a : b + 1].max())
+            amplitude = float(np.median(p[hold])) if hold.any() else float(p[a : b + 1].max())
+            if amplitude <= thr:
+                continue
+            out.onset_ms = float(t_cross - painted)
+            out.amplitude = amplitude
+            half = 0.5 * amplitude
+            first = next((j for j in idx if j >= a and p[j] >= half), b)
+            out.onset_cf_ms = float(_crossing(t, p, usable, first, half) - painted)
             break
     return out
+
+
+def _crossing(t: np.ndarray, p: np.ndarray, usable: np.ndarray, j: int, level: float) -> float:
+    """Time where p rises through `level` just before frame j: interpolated from the last usable frame before j."""
+    prev = np.flatnonzero(usable[:j])
+    if len(prev) and p[prev[-1]] < level:
+        k = prev[-1]
+        return float(t[k] + (level - p[k]) / (p[j] - p[k]) * (t[j] - t[k]))
+    return float(t[j])

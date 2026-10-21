@@ -57,12 +57,14 @@ def analyze(path: Path, plots: bool, use_cache: bool) -> int:
         return 2
     landmarks = _landmarks(bundle, use_cache)
     thresholds = Thresholds.bootstrap()
+    quality = load_config()["quality"]
     ctx = build_context(
         ((meta, image, landmarks.get(meta["i"])) for meta, image in iter_frame_images(bundle)),
         bundle.pulses,
         thresholds=thresholds,
         profile=bundle.camera_details.get("profile_measured"),
-        quality_min=float(load_config()["quality"]["min"]),
+        quality_min=float(quality["min"]),
+        min_fps=float(quality["min_fps"]),
     )
     results = run_checks(ctx)
     out = analysis_dir(bundle)

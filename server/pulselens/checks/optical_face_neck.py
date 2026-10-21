@@ -1,9 +1,11 @@
 """optical.face_neck (SPEC 9.3): does the face change colour with the neck (or shirt) after each flash?
 
 The flash reaches both in the same frame, so the device's own delay cancels out. A face-swap redraws only the
-face, so its echo comes later or weaker than the neck's. Per colour pulse: Δ = t_face - t_neck and the amplitude
-ratio A_face / A_neck.
-- A neck echo with no face echo on most measured pulses is a strong fail (rule).
+face, so its echo comes later or weaker than the neck's. Per colour pulse: Δ = t_face - t_neck, each timed at half
+of its own echo height (constant fraction, so a weak face and a strong shirt are not a frame apart), and the
+amplitude ratio A_face / A_neck.
+- A neck echo with a silent face (never above its threshold) on most measured pulses is a strong fail (rule). A face
+  that rose above its threshold without holding there is a weak echo, not silence: that pulse counts for neither.
 - Abstains when the neck is out of frame, saturated, or its echo is too weak to compare.
 - Score = |median Δ - center| / scale + ratio deviation beyond its tolerance; fails above tau.
 """
@@ -14,13 +16,18 @@ import math
 
 import numpy as np
 
-from pulselens.checks.base import AnalysisContext, abstain, guarded, result
+from pulselens.checks.base import AnalysisContext, abstain, guarded, result, too_slow
 from pulselens.checks.echo import MIN_COVERAGE, echo_onset
 from pulselens.models import CheckResult
 from pulselens.planner.registry import CheckSpec, register
 
 SPEC = CheckSpec("optical.face_neck", "optical", "light", "check.optical.face_neck", "echo")
 STRONG_FAIL_MIN = 2  # neck-only pulses needed for the rule
+
+
+def _clear(o, params) -> bool:
+    """An echo strong enough to time: its hold amplitude reaches `min_snr` times its own detection threshold."""
+    return bool(o.amplitude and o.threshold and o.amplitude >= float(params.get("min_snr", 2.0)) * o.threshold)
 
 
 @register(SPEC)
@@ -32,6 +39,8 @@ def run(ctx: AnalysisContext) -> list[CheckResult]:
         return [abstain(SPEC, "No face or neck measurements in this session.")]
     if not pulses:
         return [abstain(SPEC, "No colour pulses were painted in this session.")]
+    if slow := too_slow(SPEC, ctx):
+        return slow
     params, source = ctx.thresholds.for_check(SPEC.check_id, ctx.profile)
 
     face_seen = skin.coverage >= MIN_COVERAGE
@@ -59,21 +68,24 @@ def run(ctx: AnalysisContext) -> list[CheckResult]:
         ]
 
     a_min = float(ctx.thresholds.echo["a_min"])
-    lags, ratios, neck_only, face_only, measured = [], [], 0, 0, 0
+    lags, ratios, neck_only, face_only, measured, weak = [], [], 0, 0, 0, 0
     for p in pulses:
         f = echo_onset(ctx.t, skin, p, region="skin", a_min=a_min)
         n = echo_onset(ctx.t, neck, p, region="neck", a_min=a_min)
         if not (f.valid and n.valid):
             continue
-        if n.onset_ms is not None and f.onset_ms is not None:
+        if n.onset_cf_ms is not None and f.onset_cf_ms is not None:
+            if not (_clear(f, params) and _clear(n, params)):
+                weak += 1  # both echoed, but too close to the noise to time against each other
+                continue
             measured += 1
-            lags.append(f.onset_ms - n.onset_ms)
+            lags.append(f.onset_cf_ms - n.onset_cf_ms)
             if f.amplitude and n.amplitude and f.amplitude > 0 and n.amplitude > 0:
                 ratios.append(f.amplitude / n.amplitude)
-        elif n.onset_ms is not None:
+        elif n.onset_ms is not None and (f.peak is None or f.peak < (f.threshold or 0.0)):
             measured += 1
             neck_only += 1
-        elif f.onset_ms is not None:
+        elif f.onset_ms is not None and n.onset_ms is None:
             face_only += 1
 
     base = {
@@ -81,6 +93,7 @@ def run(ctx: AnalysisContext) -> list[CheckResult]:
         "n_pairs": len(lags),
         "n_neck_only": neck_only,
         "n_face_only": face_only,
+        "n_weak": weak,
         "neck_coverage": neck_cov,
     }
     quality = measured / len(pulses)
@@ -102,8 +115,8 @@ def run(ctx: AnalysisContext) -> list[CheckResult]:
         return [
             abstain(
                 SPEC,
-                f"The neck echo was too weak to compare: face and neck both answered only {len(lags)} of "
-                f"{len(pulses)} flashes (need {params['min_pairs']}).",
+                f"The echoes were too weak to compare: face and neck both answered clearly on only {len(lags)} of "
+                f"{len(pulses)} flashes (need {params['min_pairs']}; {weak} more were too close to the noise).",
                 quality=quality,
                 features=base,
             )
