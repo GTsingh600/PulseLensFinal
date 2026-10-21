@@ -8,7 +8,7 @@ PY ?= python3
 endif
 RUN = $(PY) scripts/dev.py
 
-.PHONY: setup server lab demo tunnel test test-web e2e lint types explainers
+.PHONY: setup server lab demo tunnel test test-web e2e e2e-brave coverage lint types explainers
 
 setup:     ## venv + server deps, npm ci for all workspaces, model files
 	$(RUN) setup
@@ -26,6 +26,10 @@ test-web:  ## tsc + vitest for every workspace
 	$(RUN) test-web
 e2e:       ## Playwright, Chromium with a fake camera
 	$(RUN) e2e
+e2e-brave: ## the same e2e suite in the installed Brave, headed
+	$(RUN) e2e-brave
+coverage:  ## line coverage: pytest-cov + vitest v8
+	$(RUN) coverage
 lint:      ## ruff + eslint
 	$(RUN) lint
 types:     ## regenerate packages/types from server/pulselens/models.py
