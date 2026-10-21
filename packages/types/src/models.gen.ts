@@ -39,6 +39,9 @@ export type LightMode = (typeof lightModeValues)[number];
 export const attackToolValues = ["screen_replay", "premade_injection", "liveportrait", "liveswap", "source_switch", "emulator"] as const;
 export type AttackTool = (typeof attackToolValues)[number];
 
+export const agentActionNameValues = ["fire_light", "fire_tilt", "take_photo", "approve", "escalate", "assisted"] as const;
+export type AgentActionName = (typeof agentActionNameValues)[number];
+
 export const eventTypeValues = ["session.created", "stage.changed", "camera.details", "probe.step", "camera.summary", "coach.tip", "plan.decided", "pulse.released", "pulse.acked", "signal.chunk", "check.started", "check.result", "coverage.update", "continuity.update", "photo.taken", "decision", "agent.action", "orchestrator.waiting", "error"] as const;
 export type EventType = (typeof eventTypeValues)[number];
 
@@ -243,4 +246,22 @@ export interface StageDone {
 export interface Heartbeat {
   type: "heartbeat";
   t: number;
+}
+
+/** Every event, pushed to presenter and lab connections (never to the customer role). */
+export interface EventMessage {
+  type: "event";
+  event: Event;
+}
+
+/** Response of POST /api/pair/{code}. */
+export interface PairJoined {
+  session_id: string;
+  role: "customer";
+}
+
+/** Body of POST /api/sessions/{id}/agent (needs X-Console-Passcode). */
+export interface AgentRequest {
+  action: AgentActionName;
+  note: string;
 }

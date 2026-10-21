@@ -23,6 +23,7 @@ SessionMode = Literal["live", "step", "superset"]
 PulseKind = Literal["light", "tilt", "hand", "lens", "photo"]
 PulseSource = Literal["orchestrator", "agent"]
 LightMode = Literal["colour", "split", "white"]
+AgentActionName = Literal["fire_light", "fire_tilt", "take_photo", "approve", "escalate", "assisted"]
 AttackTool = Literal["screen_replay", "premade_injection", "liveportrait", "liveswap", "source_switch", "emulator"]
 EventType = Literal[
     "session.created",
@@ -61,6 +62,7 @@ LITERAL_ALIASES = {
     "PulseSource": PulseSource,
     "LightMode": LightMode,
     "AttackTool": AttackTool,
+    "AgentActionName": AgentActionName,
     "EventType": EventType,
 }
 
@@ -261,10 +263,35 @@ class Heartbeat(Model):
     t: float
 
 
+# --- Viewers (presenter and lab roles) and the remaining REST shapes ------------------------------------------------
+
+
+class EventMessage(Model):
+    """Every event, pushed to presenter and lab connections (never to the customer role)."""
+
+    type: Literal["event"] = "event"
+    event: Event
+
+
+class PairJoined(Model):
+    """Response of POST /api/pair/{code}."""
+
+    session_id: str
+    role: Literal["customer"] = "customer"
+
+
+
+class AgentRequest(Model):
+    """Body of POST /api/sessions/{id}/agent (needs X-Console-Passcode)."""
+
+    action: AgentActionName
+    note: str = ""
+
+
 # Models mirrored to TypeScript, in output order.
 EXPORTED_MODELS: tuple[type[BaseModel], ...] = (
     CameraDetails, CheckResult, PlanDecision, SessionDecision, Event,
     RecordingLabel, SessionCreate, SessionCreated, FrameMeta,
     LightParams, StageMessage, PromptMessage, PulseMessage, DoneMessage,
-    PulseAck, StageDone, Heartbeat,
+    PulseAck, StageDone, Heartbeat, EventMessage, PairJoined, AgentRequest,
 )

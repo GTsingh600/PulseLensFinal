@@ -14,7 +14,7 @@ import yaml
 # server/pulselens/config.py -> repo root. PULSE_ROOT overrides it (tests, a copy of data/ for the purge script).
 REPO_ROOT = Path(os.environ.get("PULSE_ROOT") or Path(__file__).resolve().parents[2])
 CONFIG_PATH = REPO_ROOT / "config.yaml"
-DATA_DIR = REPO_ROOT / "data"
+DATA_DIR = Path(os.environ.get("PULSE_DATA_DIR") or REPO_ROOT / "data")  # e2e runs use their own folder
 MODELS_DIR = REPO_ROOT / "models"
 
 

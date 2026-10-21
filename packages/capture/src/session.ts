@@ -166,6 +166,8 @@ export class CaptureSession {
         return this.pulse(msg, receivedAt);
       case "done":
         return this.finish(msg.key);
+      case "event":
+        return; // lab role: the event stream, for screens that show it (M2.2 live plots)
     }
   }
 
