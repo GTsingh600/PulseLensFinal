@@ -6,7 +6,7 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   {
     ignores: [
-      "**/node_modules/**", "**/dist/**", ".venv/**", "data/**", "models/**",
+      "**/node_modules/**", "**/dist/**", ".venv*/**", "data/**", "models/**",
       "**/test-results/**", "playwright-report/**", "server/**", "eval/**",
     ],
   },

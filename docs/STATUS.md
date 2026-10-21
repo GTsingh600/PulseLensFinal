@@ -50,6 +50,7 @@ Ticked = acceptance checks in `docs/BUILD_PLAN.md` pass. Newest notes first in e
 - [ ] M5.4 [C] Purge script
 
 ## Needs a human
+- **Decision: desktop light echo (G1 no-go case, from laptop D01).** On session `ed0a0c434e62b495` the face echo was at the noise floor (0.0035–0.0059 vs a ~0.003 threshold) with the 18% border flash in a non-full-screen Brave window and room light brighter than the screen; `light.delay` fails a genuine person (2 of 6 echoes). BUILD_PLAN G1 lists the fallbacks: pulses to 600 ms and full screen on desktops, and/or `light` becomes ○ for desktops in `policy.yaml`. Re-record first in Chrome, in better light (the camera dropped to 15.6–21 fps from auto-exposure), full screen, to see how much is setup.
 - **Attack recordings (only the people recorded consent; existing tools only, CLAUDE.md rule 7).** Lab Record → **Attack** → pick the tool. One genuine session on the same device and light first, then each attack below twice. Then `python -m pulselens.cli analyze data/sessions/<id>` and note the statuses. Only the checks marked *now* exist; the rest arrive with M2.3–M2.5 and are listed so the recordings are reusable.
 
   | Attack (tool in the form) | How to record it | Expected now | Expected later |
