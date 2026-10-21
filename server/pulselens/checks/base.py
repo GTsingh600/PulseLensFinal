@@ -17,6 +17,8 @@ from pulselens.calibration.thresholds import Thresholds
 from pulselens.models import CheckResult, CheckStatus, ThresholdSource
 from pulselens.planner.registry import CheckSpec
 from pulselens.vision.linearize import srgb_to_linear
+from pulselens.vision.noise import NoiseCurve
+from pulselens.vision.prnu import Fingerprint
 
 
 @dataclass(frozen=True)
@@ -90,6 +92,13 @@ class AnalysisContext:
     profile: str | None = None
     quality_min: float = 0.5  # config quality.min
     min_fps: float = 12.0  # config quality.min_fps: below it every check abstains (SPEC 7.6)
+    # Camera reality evidence (SPEC 9.2), measured while the frames are read; empty when not measured.
+    details: Mapping[str, Any] = field(default_factory=dict)  # meta.json camera_details
+    probe: tuple[Mapping[str, Any], ...] = ()  # probe.jsonl rows
+    presented: np.ndarray = field(default_factory=lambda: np.empty(0))  # presented_frames per frame (nan if unknown)
+    noise: NoiseCurve | None = None
+    fingerprint: Fingerprint | None = None
+    duplicates: tuple[int, int] | None = None  # (exact repeats of the previous frame, frames compared)
 
     @property
     def colour_pulses(self) -> list[Pulse]:

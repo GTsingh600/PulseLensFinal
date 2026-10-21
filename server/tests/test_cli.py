@@ -73,7 +73,8 @@ def test_cli_on_an_e2e_shaped_bundle_without_faces(tmp_path: Path) -> None:
     bundle = _e2e_like_bundle(tmp_path)
     assert cli.main(["analyze", str(bundle), "--plots"]) == 0
     checks = checks_by_id(bundle)
-    assert {c["status"] for c in checks.values()} == {"abstain"}  # no face: never a fail
+    assert "fail" not in {c["status"] for c in checks.values()}  # no face: never a fail
+    assert {checks[k]["status"] for k in ("optical.light.delay", "optical.face_neck")} == {"abstain"}
     assert (bundle / "landmarks.jsonl").exists()  # cached for the next run
 
 

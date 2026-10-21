@@ -17,6 +17,7 @@ from pulselens.calibration.thresholds import Thresholds
 from pulselens.config import MODELS_DIR, load_config
 from pulselens.store import (
     analysis_dir,
+    iter_fingerprint_images,
     iter_frame_images,
     read_bundle,
     read_landmarks,
@@ -25,6 +26,27 @@ from pulselens.store import (
 )
 
 FACE_MODEL = MODELS_DIR / "mediapipe" / "face_landmarker.task"
+
+
+def _probe_with_fov(bundle) -> list[dict]:
+    """probe.jsonl rows, each with `fov_scale` between the working frames nearest `before_t` and `after_t`."""
+    import cv2
+
+    from pulselens.vision.modes import fov_scale
+
+    def frame_at(t):
+        if not isinstance(t, int | float) or not bundle.frames:
+            return None
+        meta = min(bundle.frames, key=lambda f: abs(f["t"] - t))
+        img = cv2.imread(str(bundle.path / "frames" / meta["file"]), cv2.IMREAD_COLOR)
+        return cv2.cvtColor(img, cv2.COLOR_BGR2RGB) if img is not None else None
+
+    rows = []
+    for row in bundle.probe:
+        before, after = frame_at(row.get("before_t")), frame_at(row.get("after_t"))
+        scale = fov_scale(before, after) if before is not None and after is not None else None
+        rows.append({**row, "fov_scale": scale})
+    return rows
 
 
 def _landmarks(bundle, use_cache: bool) -> dict:
@@ -60,6 +82,8 @@ def analyze(path: Path, plots: bool, use_cache: bool) -> int:
     landmarks = _landmarks(bundle, use_cache)
     thresholds = Thresholds.bootstrap()
     quality = load_config()["quality"]
+    from pulselens.vision.prnu import fingerprint
+
     ctx = build_context(
         ((meta, image, landmarks.get(meta["i"])) for meta, image in iter_frame_images(bundle)),
         bundle.pulses,
@@ -67,6 +91,9 @@ def analyze(path: Path, plots: bool, use_cache: bool) -> int:
         profile=bundle.camera_details.get("profile_measured"),
         quality_min=float(quality["min"]),
         min_fps=float(quality["min_fps"]),
+        details=bundle.camera_details,
+        probe=_probe_with_fov(bundle),
+        fingerprint=fingerprint(iter_fingerprint_images(bundle)),
     )
     results = run_checks(ctx)
     out = analysis_dir(bundle)
