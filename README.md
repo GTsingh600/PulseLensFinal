@@ -61,7 +61,10 @@ A person (the V-CIP agent) always makes the final call. PulseLens never auto-rej
 - **Sensor fingerprint:** genuine sessions as low as PCE 174; Chromium's fake camera produced a stable pattern at PCE 97. The fingerprint is supporting evidence, not proof of a sensor; the limit is 50.
 - **Tests:** 444 pytest passed (1 skipped), 131 web tests, lint clean, e2e in headed Brave.
 
-Details and every threshold decision: `docs/STATUS.md`. Literature review: `docs/research/pulse_and_illumination.md`.
+Details and every threshold decision: `docs/STATUS.md`. Research:
+- [`docs/research/pulse_and_illumination.md`](docs/research/pulse_and_illumination.md): multi-site pulse, screen illumination, rules vs learning
+- [`docs/research/live_swaps_and_detectors.md`](docs/research/live_swaps_and_detectors.md): what a live swap can't fake, prebuilt detectors, active probes, ranked ideas
+- [`docs/research/deck_review.md`](docs/research/deck_review.md): the final deck and doc checked against the research and our measurements
 
 ## Next experiments, in order
 
@@ -110,4 +113,4 @@ python -m pulselens.cli analyze data/sessions/<id> --plots
 
 ## Sources
 
-Gerstner & Farid, CVPR-W 2022 (active illumination against real-time deepfakes); An et al., IET Biometrics 2024 (face-vs-neck rPPG); Seibold et al., Frontiers in Imaging 2025 (deepfakes inherit the driver's pulse); Tang et al., NDSS 2018 (Face Flashing); Shiohara & Yamasaki, CVPR 2022 (SBI); "Not All Challenges Are Equal", arXiv 2610.16417; corneal reflection probing, arXiv 2210.14153; SFake, arXiv 2409.10889; CEN/TS 18099:2024; ISO/IEC 30107-3. Full list in `docs/research/pulse_and_illumination.md`.
+Gerstner & Farid, CVPR-W 2022 (active illumination against real-time deepfakes); An et al., IET Biometrics 2024 (face-vs-neck rPPG); Seibold et al., Frontiers in Imaging 2025 (deepfakes inherit the driver's pulse); Tang et al., NDSS 2018 (Face Flashing); Shiohara & Yamasaki, CVPR 2022 (SBI); "Not All Challenges Are Equal", arXiv 2610.16417; corneal reflection probing, arXiv 2210.14153; SFake, arXiv 2409.10889; CEN/TS 18099:2024; ISO/IEC 30107-3. Full lists with links in the research notes above.
