@@ -21,17 +21,65 @@ A person (the V-CIP agent) always makes the final call. PulseLens never auto-rej
 
 ![PulseLens architecture: what is built and what is not](docs/architecture.svg)
 
-| Question | Catches | Built | Not built yet |
+Three columns, as in the original deck: the applicant's device, the PulseLens service (self-hosted in India), and the bank's existing systems. Teal is built, grey dashed is planned in `docs/SPEC.md`, coral dashed is new since the research.
+
+| Question | Catches | Built | Planned in SPEC | New since the research |
+|---|---|---|---|---|
+| Real camera? | OBS and other virtual cameras, Android emulators, injected streams (CEN/TS 18099 injection attacks) | Mode-switch probe, noise curve, sensor fingerprint (PRNU, PCE), frame timing, duplicate frames, claim/env/label rules, exposure lock | — | — |
+| Live scene? | Screen replays, pre-rendered fakes | Random colour flash with an echo-delay check | Lens step (where camera controls exist) | 50 Hz tube-light flicker filter |
+| Same as the neck? | Live face swaps | Face-vs-neck flash echo (strength, with safe abstaining) | Split-screen flash (two cheeks lit differently), noise that follows the flash, pulse agreement (Lab only) | Face-vs-neck noise and sharpness, screen glint in the eye |
+| Holds up? | Live face swaps, masks | — | Tilt vs gyroscope, hand prompt, continuity guard | Closer/farther distance law, identity through a profile turn, SBI and MiniFASNet as features, phone vibration (Android) |
+| Decide | — | Provisional thresholds (`server/pulselens/calibration/bootstrap.yaml`), pulse signing, session token, Lab results card | Planner, device baselines, family fusion, agent console, evidence store, evaluation | Six device tiers; calibrated logistic-regression fusion |
+
+### Adaptive test suites: one plan per device tier
+
+The planner measures the device first (frame rate, noise, camera controls, gyroscope, claims vs behaviour), puts it in a tier, and picks the cheapest suite that still gives every attack two independent families. The tier comes from **measurements, not claims**, and can drop mid-session (for example if the frame rate falls during the light suite). Thresholds are calibrated per tier.
+
+| Tier | Detected by | Suite | About |
 |---|---|---|---|
-| Real camera? | OBS and other virtual cameras, Android emulators, injected streams (CEN/TS 18099 injection attacks) | Mode-switch probe, noise curve, sensor fingerprint (PRNU, PCE), frame timing, duplicate frames, claim/env/label rules | — |
-| Live scene? | Screen replays, pre-rendered fakes | Random colour flash with an echo-delay check; exposure lock on slow cameras | 50 Hz tube-light flicker filter |
-| Same as the neck? | Live face swaps | Face-vs-neck flash echo (strength, with safe abstaining) | Split-screen flash (two cheeks lit differently), face-vs-neck noise and sharpness, screen glint in the eye, pulse agreement (Lab only) |
-| Holds up? | Live face swaps, masks | — | SBI blending-seam detector, MiniFASNet anti-spoofing, identity through a profile turn, phone vibration (Android), hand over the face, continuity lock |
-| Decide | — | Provisional thresholds (`server/pulselens/calibration/bootstrap.yaml`), Lab results card | Planner per device, calibrated logistic-regression fusion, agent console, routing to the five outcomes |
+| Good phone | gyroscope, 24+ fps | camera + full-screen flash + split flash + tilt + closer/farther | 15 s |
+| Budget phone | gyroscope, 12–24 fps or heavy noise | camera + closer/farther + tilt + slower flashes; physiology off | 20 s |
+| Good webcam | desktop, 24+ fps | camera + flash + split flash + head turn | 15 s |
+| Bad webcam | under 20 fps or dim | coaching first, then camera + head turn; light checks abstain; agent challenge | 20 s + agent |
+| Suspicious device | claims don't match measurements (a "webcam" that behaves like a virtual camera) | every unit, stricter thresholds, agent challenge | longer |
+| No-flash | the customer's choice (photosensitivity, accessibility) | no light; agent-run path | agent |
+
+**Closer / farther** is new. As the phone (or the person, on a laptop) moves from far to near, three things change together on a real face:
+
+- perspective: the nose grows relative to the face outline and the ears disappear;
+- our flash on the face gets much stronger while the background stays the same;
+- focus and sensor noise shift.
+
+A screen or replay only scales evenly, and a pasted face has to keep pace with the real neck. FaceTec's commercial 3-D liveness uses a similar close-far motion, so this is not new as an idea; whether live swaps fail it is still to be measured.
 
 **Why not measure heart rate?** A live swap copies the attacker's own pulse onto the fake face (median r = 0.89 for DeepFaceLive, Fraunhofer HHI 2025), and the attacker's neck and hand are real, so pulses at every site agree. Reading a pulse also needs at least 20 fps and 10–20 s, more than many budget cameras give. Our flash does the same job better: it is a pulse we control, much stronger, with a known timing. Pulse agreement stays a Lab measurement. PulseLens never stores a heart rate or a pulse waveform.
 
 **Why prebuilt detectors only as features?** Detectors like SBI are trained on offline, compressed fakes, and their accuracy drops on unseen data (cross-dataset AUC around 0.72–0.89 in reproductions), and further on Indian webcams and faces. They also tend to fail together. They enter as one family, scored against genuine sessions and weighted by fusion, never as the only vote. No faces are sent to third-party APIs.
+
+## What changed from the original idea
+
+The original pitch (final deck v6) was "Deepfakes fool faces. PulseLens checks the camera": three questions (real camera, live physics, same camera all call), with **the face lagging the neck** as the star test. The research and our recordings kept the frame but moved where the strength against live swaps comes from. Full reasoning: [`docs/research/deck_review.md`](docs/research/deck_review.md).
+
+| | Original idea | What changed | Why it is better |
+|---|---|---|---|
+| Core claim against live swaps | The face lags the neck when the screen flashes | The face is a repainted patch of a real frame; test whether it reflects light, shows noise and shades in 3-D like the real neck | Live swaps may copy our flash in the same frame, with no lag; a repaint can't easily fake 3-D shading or sensor noise |
+| Structure | 3 questions | 4 questions: real camera, live scene, same surface as the neck, holds up under stress | Each targets a different attack, so fusing them across families means something |
+| Face-vs-neck check | Timing (lag) | Echo strength (built), colour direction (planned), safe abstaining | One webcam frame (64–96 ms) is longer than the lag limit, so timing falsely failed genuine users |
+| Split-screen flash | One of three echoes | The main optical test against live swaps | The one optical test a colour transfer can't fake (Face Flashing, Gerstner & Farid) |
+| Heart rate, multi-site pulse | Stretch goal; "noise follows pulse" | Lab-only measurement; the flash replaces it ("a pulse we control") | A live swap copies the attacker's real pulse (r = 0.89); our cameras are too slow to read one |
+| Prebuilt AI models | Not in the plan | SBI and MiniFASNet scored as one family | They cover blending seams physics can't see, without being the sole judge |
+| Challenges | Tilt and hand occlusion | Profile turn with identity tracking and Android vibration added; hand occlusion demoted | Pose challenges scored best in the live-swap study; masks now defeat hand occlusion |
+| Eye reflection | — | Screen glint in the cornea (idea) | A swap regenerates the eyes, so the reflection should be lost or wrong |
+| Sensor fingerprint | "Missing in generated video" | Supporting evidence only, limit 50 | Chromium's fake camera produced a stable fingerprint (PCE 97) |
+| Camera checks | Planned | Built: mode probe, noise curve, fingerprint, timing, duplicates, rules, plus an exposure lock | They catch the fake camera, pass the real one, and line up with CEN/TS 18099 |
+| Decisions | Rules with per-device thresholds | Thresholds learned from genuine sessions only, then logistic-regression fusion, with error rates per device and skin tone | Fits our data size: few attack samples, and two-class models generalise badly to unseen attacks |
+| India claims | "Built for real Indian phones" | A measured-vs-assumed list: budget phones, tube lights, skin tones, languages and live swaps are all untested | Honest, and it gives a concrete test plan |
+| Per-device plan | Planner with fps-band profiles (a phone with a gyroscope gets tilt + light; a desktop gets hand + light + agent) | Six named tiers from measurements (good/budget phone, good/bad webcam, suspicious device, no-flash), which can drop mid-session; closer/farther challenge added | Budget phones and bad webcams get a suite they can actually pass instead of a wall of abstains; suspicious devices get stricter, not easier |
+| Prior work | Novelty table missing the two closest papers | Gerstner & Farid 2022 and An et al. 2024 cited, with what is different | Keeps "we didn't find, not first" credible |
+
+**Unchanged, because the research backs it:** camera first, random active light against replays, never auto-reject, abstain on weak devices, the agent in the loop, hold only when two families flag, the continuity lock, no pulse stored.
+
+**Still to prove:** none of the new swap-specific tests has been run against a real live swap yet. Whether the new idea beats the old one depends on recording Deep-Live-Cam sessions first.
 
 ## Built for India, and what is not measured yet
 
@@ -61,7 +109,10 @@ A person (the V-CIP agent) always makes the final call. PulseLens never auto-rej
 - **Sensor fingerprint:** genuine sessions as low as PCE 174; Chromium's fake camera produced a stable pattern at PCE 97. The fingerprint is supporting evidence, not proof of a sensor; the limit is 50.
 - **Tests:** 444 pytest passed (1 skipped), 131 web tests, lint clean, e2e in headed Brave.
 
-Details and every threshold decision: `docs/STATUS.md`. Literature review: `docs/research/pulse_and_illumination.md`.
+Details and every threshold decision: `docs/STATUS.md`. Research:
+- [`docs/research/pulse_and_illumination.md`](docs/research/pulse_and_illumination.md): multi-site pulse, screen illumination, rules vs learning
+- [`docs/research/live_swaps_and_detectors.md`](docs/research/live_swaps_and_detectors.md): what a live swap can't fake, prebuilt detectors, active probes, ranked ideas
+- [`docs/research/deck_review.md`](docs/research/deck_review.md): the final deck and doc checked against the research and our measurements
 
 ## Next experiments, in order
 
@@ -110,4 +161,4 @@ python -m pulselens.cli analyze data/sessions/<id> --plots
 
 ## Sources
 
-Gerstner & Farid, CVPR-W 2022 (active illumination against real-time deepfakes); An et al., IET Biometrics 2024 (face-vs-neck rPPG); Seibold et al., Frontiers in Imaging 2025 (deepfakes inherit the driver's pulse); Tang et al., NDSS 2018 (Face Flashing); Shiohara & Yamasaki, CVPR 2022 (SBI); "Not All Challenges Are Equal", arXiv 2610.16417; corneal reflection probing, arXiv 2210.14153; SFake, arXiv 2409.10889; CEN/TS 18099:2024; ISO/IEC 30107-3. Full list in `docs/research/pulse_and_illumination.md`.
+Gerstner & Farid, CVPR-W 2022 (active illumination against real-time deepfakes); An et al., IET Biometrics 2024 (face-vs-neck rPPG); Seibold et al., Frontiers in Imaging 2025 (deepfakes inherit the driver's pulse); Tang et al., NDSS 2018 (Face Flashing); Shiohara & Yamasaki, CVPR 2022 (SBI); "Not All Challenges Are Equal", arXiv 2610.16417; corneal reflection probing, arXiv 2210.14153; SFake, arXiv 2409.10889; CEN/TS 18099:2024; ISO/IEC 30107-3. Full lists with links in the research notes above.
