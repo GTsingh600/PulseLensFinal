@@ -182,18 +182,21 @@ Plot series in `signal.chunk` are downsampled to ≤ 200 points. The full data s
 | POST | `/api/sessions/{id}/frames` | multipart batch: `meta` = frames.jsonl lines (`FrameMeta`), `frames` = working JPEGs, `fp` = fingerprint JPEGs, each file named as in its meta line |
 | POST | `/api/sessions/{id}/sensors` | sensor lines |
 | POST | `/api/sessions/{id}/finalize` | end of capture |
-| POST | `/api/sessions/{id}/next` | step-through mode: release the stage the orchestrator is waiting at; 409 when it is not waiting (a double-click never skips a stage) or the session is not in step mode |
+| POST | `/api/sessions/{id}/next` | (needs the session token) step-through mode: release the stage the orchestrator is waiting at; 409 when it is not waiting (a double-click never skips a stage) or the session is not in step mode |
 | POST | `/api/sessions/{id}/agent` | `{action: fire_light|fire_tilt|take_photo|approve|escalate|assisted, note}` (needs `X-Console-Passcode`) |
-| GET | `/api/sessions/{id}/events?from=seq` | event catch-up for reconnect and replay: `{events}` with `seq >= from` (default 0), so a client that has seen up to k asks `from=k+1` |
-| GET | `/api/sessions/{id}/report` | full results for the Lab report |
+| GET | `/api/sessions/{id}/events?from=seq` | (needs the session token: events carry scores) event catch-up for reconnect and replay: `{events}` with `seq >= from` (default 0), so a client that has seen up to k asks `from=k+1` |
+| POST | `/api/sessions/{id}/analyze` | (needs the session token) run every check on the saved bundle in a worker thread, as `cli analyze` does; 202 |
+| GET | `/api/sessions/{id}/report` | (needs the session token) `{status: none|running|error|done}`; when done, `qc` (fps, frames, dropped, acks, clock, browser, face and neck visible share) and `checks` (CheckResult list), plus `provisional_thresholds` |
 | GET | `/api/lab/sessions` | list with filters; set B rows are counts only until `FROZEN` |
 | GET | `/api/lab/results` | dashboard data (section 13.5) |
 | GET | `/api/sessions/{id}/evidence.zip` | evidence pack |
 
-**WebSocket `/ws/session/{id}?role=customer|presenter|lab[&from=seq]`**
+**Session token.** `POST /api/sessions` returns `token` = HMAC(`PULSE_HMAC_SECRET`, `console|<id>`), truncated to 32 hex. Only the creator (Lab page, presenter) gets it; pairing gives the customer the session id alone. It goes in `X-Session-Token` (or `?token=`) for `/events` and `/next`, and in `?token=` for the presenter and lab sockets (401 / close 4401 without it), so a customer who knows the session id still never sees scores.
+
+**WebSocket `/ws/session/{id}?role=customer|presenter|lab[&from=seq][&token=]`**
 - Customer role receives `prompt`, `pulse`, `stage` and `done` messages, and sends acks and heartbeats.
 - Presenter and lab roles receive every event as `{"type": "event", "event": Event}`. A presenter first gets the events from `from` (default 0); the lab role (the Lab's capture device) gets new events only unless it passes `from`.
-- One capture device (customer or lab role) per session; a second one is closed with code 4409. Unknown session: 4404; unknown role: 4400. Connecting the capture device starts the orchestrator.
+- One capture device (customer or lab role) per session; a second one is closed with code 4409. Unknown session: 4404; unknown role: 4400; presenter or lab without the session token: 4401. Connecting the capture device starts the orchestrator.
 - Customer-facing payloads never include scores, check names or families. The customer sees only prompts and "please try again", "an agent will verify you" or "please visit a branch".
 - Pulses are signed with `HMAC_SHA256(secret, pulse_id|kind|params|session_id)` (params as canonical JSON: sorted keys, no spaces), single-use, released just in time, and expire in 300 ms.
 - Acks: accepted once, only with the pulse's signature; a repeat, an unknown pulse or a wrong signature is rejected and logged as an `error` event. An ack is **late** (`ok: false`, `error: "late"`) when the client painted more than `expires_in_ms` after receiving the pulse, or when it reaches the server after `release + duration + expires_in_ms + 1500 ms`. Pulses never acked are logged `no_ack` at the end. Every message to a customer is checked against a deny-list (`score`, `check_id`, `family`, …) before it is sent.
@@ -263,6 +266,7 @@ Where `resizeMode` is unsupported (Safari, Firefox), skip the unusual mode and m
   - 2 white pulses (`config.pulses.light.white`; 0 disables them) for the noise check.
   - Phones use a full-screen overlay (fullscreen mode). Desktops use a border of 18% of the shorter side; for split pulses the left and right border halves differ.
   - Timing: `received`; set the colour in the next rAF → `applied`; following rAF → `painted`; clear after `duration` → `ended`.
+  - **Camera lock** (`packages/capture/src/lock.ts`): where capabilities offer them, white balance is frozen at the current temperature and, only when the measured frame rate is below 27 fps (auto exposure stretching frames), exposure at 33 ms (`exposureMode: "manual"`), for the whole suite. The exposureTime a camera reports in continuous mode is not used: at G1 it read 15.6 ms while frames came every 96 ms, and locking at it made the face 10x darker, then set back to continuous. Auto exposure otherwise drops a webcam to ~10 fps in a dim room (G1) and auto white balance can chase the flashes. What was locked goes to `camera_details.camera_lock`; a refused lock is logged there, never an error.
 - **Tilt:** prompt "Tilt your phone slightly forward and back, twice" for 2.5 s. Sensors are logged all session.
 - **Hand:** prompt "Pass your hand slowly across your face, then turn your head left and right" for 4 s, with an animation.
 - **Lens** (only if capabilities list `exposureCompensation`, or a manual `exposureTime`/`colorTemperature`): 3 steps with `applyConstraints({advanced: [...]})`, then restore.
@@ -338,7 +342,10 @@ All of these use per-frame mean linear RGB of each region and the pulse log.
 2. Expected direction `d_c` = the pulse colour's chromaticity minus neutral.
 3. Projection `p(t) = (x(t) - mean_pre) · d_c`, with the baseline over the 300 ms before `painted`.
 4. Onset = the first two consecutive frames above `max(4σ_pre, a_min)` within 700 ms, interpolated to the crossing.
-5. The pulse colour is the one the client painted (`shown` in pulses.jsonl). `d_c` is normalised, so `p` and `a_min` are in chromaticity units. Interpolating across the exposure ramp makes onsets up to one frame early; the bias is constant per device, so the calibrated centre absorbs it, and it cancels in `face_neck`.
+5. An onset whose hold amplitude (median over 25–75% of the pulse after the crossing) stays at or below the threshold is noise that crossed twice, not an echo.
+6. **Constant-fraction onset** (`onset_cf_ms`): the same rising edge timed where it reaches half of its own hold amplitude. `face_neck` compares these, because a fixed threshold is crossed later on a weak echo than a strong one (up to a frame). `face_neck` times a pulse only when both echoes reach `min_snr` (2) times their own threshold; weaker pairs count for neither side.
+7. Every optical check abstains below `quality.min_fps` (12 fps, §7.6).
+8. The pulse colour is the one the client painted (`shown` in pulses.jsonl). `d_c` is normalised, so `p` and `a_min` are in chromaticity units. Interpolating across the exposure ramp makes onsets up to one frame early; the bias is constant per device, so the calibrated centre absorbs it, and it cancels in `face_neck`.
 
 | Check | Algorithm | Score |
 |---|---|---|

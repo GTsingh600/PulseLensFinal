@@ -2,8 +2,16 @@ from pulselens.config import config_hash, load_config
 
 # Top-level sections and a few values pinned by SPEC 18; other code reads these keys directly.
 SPEC_SECTIONS = {
-    "capture", "probe", "pulses", "profiles", "planner", "calibration",
-    "continuity", "quality", "physiology", "demo",
+    "capture",
+    "probe",
+    "pulses",
+    "profiles",
+    "planner",
+    "calibration",
+    "continuity",
+    "quality",
+    "physiology",
+    "demo",
 }
 
 

@@ -120,6 +120,8 @@ def light_session(
     face_echo: bool = True,
     neck_echo: bool = True,
     neck_coverage: float = 1.0,
+    neck_gain: float = 1.0,
+    neck_lead_ms: float = 0.0,
     face_present: bool = True,
     n_colour: int = 6,
     n_split: int = 2,
@@ -132,7 +134,12 @@ def light_session(
     gap_ms: float = 1000.0,
     seed: int = 0,
 ) -> LightSession:
-    """Region means and a pulse log for one light suite. Echo `delay_ms` after `painted`; the face can lag."""
+    """Region means and a pulse log for one light suite. Echo `delay_ms` after `painted`; the face can lag.
+
+    `neck_gain` scales how strongly the neck (or shirt) answers the screen, as a darker or shinier shirt does.
+    `neck_lead_ms` models a rolling shutter: the neck rows are read after the face rows, so in frame times the
+    neck's echo shows up that much earlier than the face's, with no face-swap involved.
+    """
     rng = np.random.default_rng(seed)
     pulses = _pulse_log(1000.0, n_colour, n_split, n_white, duration_ms, gap_ms)
     end = pulses[-1]["ended"] + 1500
@@ -145,7 +152,7 @@ def light_session(
         ("skin", SKIN, face_k, face_lag_ms, "left"),
         ("cheek_left", SKIN, face_k, face_lag_ms, "left"),
         ("cheek_right", SKIN, face_k, face_lag_ms, "right"),
-        ("neck", SHIRT, k if neck_echo else 0.0, 0.0, "left"),
+        ("neck", SHIRT, k * neck_gain if neck_echo else 0.0, -neck_lead_ms, "left"),
         ("background", WALL, 0.05 * k, 0.0, "left"),
     ]:
         rgb = _render(t, interval, _screen(pulses, side), delay_ms + lag, albedo, ambient, kk)

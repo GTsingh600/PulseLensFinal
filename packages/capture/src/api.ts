@@ -36,6 +36,15 @@ export class CaptureApi {
     return this.json(`/api/sessions/${sessionId}/details`, details);
   }
 
+  /** probe.jsonl rows (SPEC 7.3), one JSON object per line. */
+  postProbe(sessionId: string, rows: object[]): Promise<void> {
+    return this.request(`/api/sessions/${sessionId}/probe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-ndjson" },
+      body: rows.map((r) => `${JSON.stringify(r)}\n`).join(""),
+    });
+  }
+
   postFrames(sessionId: string, body: FormData): Promise<void> {
     return this.request(`/api/sessions/${sessionId}/frames`, { method: "POST", body });
   }
@@ -80,10 +89,12 @@ export class CaptureSocket {
     this.heartbeat = setInterval(() => this.send({ type: "heartbeat", t: now() }), 2000);
   }
 
-  static connect(wsPath: string, role: CaptureRole): Promise<CaptureSocket> {
+  /** `token` (SessionCreated.token) is required for the lab role, which receives every event; customers have none. */
+  static connect(wsPath: string, role: CaptureRole, token?: string): Promise<CaptureSocket> {
     const url = new URL(wsPath, location.href);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
     url.searchParams.set("role", role);
+    if (token && role === "lab") url.searchParams.set("token", token);
     const ws = new WebSocket(url);
     return new Promise((resolve, reject) => {
       ws.onopen = () => resolve(new CaptureSocket(ws));

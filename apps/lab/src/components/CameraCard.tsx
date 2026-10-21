@@ -34,6 +34,11 @@ export function CameraCard({ details }: { details: CameraDetails }) {
   return (
     <section className="card camera-card" aria-label="Camera details">
       <h3>Camera</h3>
+      {details.browser.startsWith("Brave") && (
+        <p className="notice warning" role="note">
+          {explain("notice.brave").text}
+        </p>
+      )}
       <Field k="field.channel">{CHANNEL[details.channel]}</Field>
       <Field k="field.browser">
         {details.browser} on {details.os}

@@ -13,7 +13,7 @@ import sqlite3
 import time
 from collections.abc import Iterator
 from contextlib import closing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +27,8 @@ class Bundle:
     meta: dict[str, Any]
     frames: list[dict[str, Any]]  # frames.jsonl, sorted by frame index
     pulses: list[dict[str, Any]]  # pulses.jsonl
+    probe: list[dict[str, Any]] = field(default_factory=list)  # probe.jsonl (SPEC 7.3)
+    skipped: int = 0  # unreadable or incomplete log lines left out (a line cut off when the server stopped)
 
     @property
     def session_id(self) -> str:
@@ -38,9 +40,30 @@ class Bundle:
 
 
 def _jsonl(path: Path) -> list[dict[str, Any]]:
+    return _jsonl_counted(path)[0]
+
+
+def _jsonl_counted(path: Path) -> tuple[list[dict[str, Any]], int]:
+    """Lines that parse to a JSON object, and how many did not."""
     if not path.exists():
-        return []
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        return [], 0
+    rows, bad = [], 0
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            bad += 1
+            continue
+        if isinstance(row, dict):
+            rows.append(row)
+        else:
+            bad += 1
+    return rows, bad
+
+
+FRAME_KEYS = ("i", "t", "file")
 
 
 def read_bundle(path: Path) -> Bundle:
@@ -48,8 +71,28 @@ def read_bundle(path: Path) -> Bundle:
         raise FileNotFoundError(f"{path} is not a session bundle (no frames.jsonl)")
     meta_file = path / "meta.json"
     meta = json.loads(meta_file.read_text(encoding="utf-8")) if meta_file.exists() else {}
-    frames = sorted(_jsonl(path / "frames.jsonl"), key=lambda f: f["i"])
-    return Bundle(path=path, meta=meta, frames=frames, pulses=_jsonl(path / "pulses.jsonl"))
+    rows, bad_frames = _jsonl_counted(path / "frames.jsonl")
+    frames = [f for f in rows if all(isinstance(f.get(k), int | float | str) for k in FRAME_KEYS)]
+    pulses, bad_pulses = _jsonl_counted(path / "pulses.jsonl")
+    skipped = bad_frames + (len(rows) - len(frames)) + bad_pulses
+    probe, bad_probe = _jsonl_counted(path / "probe.jsonl")
+    return Bundle(
+        path=path,
+        meta=meta,
+        frames=sorted(frames, key=lambda f: f["i"]),
+        pulses=pulses,
+        probe=probe,
+        skipped=skipped + bad_probe,
+    )
+
+
+def iter_fingerprint_images(bundle: Bundle) -> Iterator[np.ndarray]:
+    """Native-size fingerprint frames (fp/, every fp_every-th frame) in capture order, RGB uint8."""
+    for meta in bundle.frames:
+        if meta.get("fp_file"):
+            img = cv2.imread(str(bundle.path / "fp" / meta["fp_file"]), cv2.IMREAD_COLOR)
+            if img is not None:
+                yield cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
 
 def iter_frame_images(bundle: Bundle) -> Iterator[tuple[dict[str, Any], np.ndarray | None]]:

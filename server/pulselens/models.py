@@ -95,6 +95,11 @@ class CameraDetails(Model):
     profile_measured: str | None
     noise_curve: dict[str, Any] | None = Field(description="slope, intercept, r2, per-channel")
     fingerprint_pce: float | None
+    camera_lock: dict[str, Any] | None = Field(
+        default=None,
+        description="exposure / white balance frozen for the light suite: exposure, white_balance, "
+        "exposure_time (100 us units), error",
+    )
 
 
 class CheckResult(Model):
@@ -177,6 +182,10 @@ class SessionCreated(Model):
     session_id: str
     pair_code: str
     ws_url: str = Field(description="path of the session WebSocket, e.g. /ws/session/<id>")
+    token: str = Field(
+        description="session console token: needed for the presenter and lab roles, the events catch-up and /next; "
+        "never given to the customer, who only gets the session id from pairing"
+    )
 
 
 class FrameMeta(Model):

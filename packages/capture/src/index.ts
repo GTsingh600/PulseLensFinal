@@ -9,5 +9,7 @@ export * from "./env";
 export * from "./flash";
 export * from "./grabber";
 export * from "./light";
+export * from "./lock";
+export * from "./probe";
 export * from "./session";
 export * from "./uploader";

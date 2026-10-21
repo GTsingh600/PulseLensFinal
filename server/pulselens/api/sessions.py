@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import hmac
 import json
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Header, HTTPException, Query, Request, Response
@@ -27,6 +29,13 @@ def _runtime(request: Request, session_id: str) -> SessionRuntime:
     if rt is None:
         raise HTTPException(404, "unknown session")
     return rt
+
+
+def _token(request: Request, session_id: str, header: str | None) -> None:
+    """Scores and stage control belong to whoever created the session (SessionCreated.token)."""
+    token = header or request.query_params.get("token")
+    if not _hub(request).token_ok(session_id, token):
+        raise HTTPException(401, "session token required (X-Session-Token)")
 
 
 def _passcode(request: Request, passcode: str | None) -> None:
@@ -111,10 +120,13 @@ async def finalize(request: Request, session_id: str, summary: Annotated[dict[st
 
 
 @router.post("/sessions/{session_id}/next", status_code=204)
-async def next_stage(request: Request, session_id: str) -> Response:
+async def next_stage(
+    request: Request, session_id: str, x_session_token: Annotated[str | None, Header()] = None
+) -> Response:
     """Step-through mode: release the stage the orchestrator is waiting at (SPEC 14.1). Only valid while it
     waits, so a double-click never skips a stage the audience hasn't seen explained."""
     rt = _runtime(request, session_id)
+    _token(request, session_id, x_session_token)
     if rt.mode != "step":
         raise HTTPException(409, "session is not in step mode")
     if rt.waiting_for is None:
@@ -137,10 +149,55 @@ async def agent(
     return {"status": "logged"}
 
 
+def _analyse(path: Path) -> dict[str, Any]:
+    from pulselens.cli import run_analysis
+    from pulselens.store import read_bundle
+
+    return run_analysis(read_bundle(path))[2]
+
+
+@router.post("/sessions/{session_id}/analyze", status_code=202)
+async def analyze(
+    request: Request, session_id: str, x_session_token: Annotated[str | None, Header()] = None
+) -> dict[str, str]:
+    """Run every check on the saved bundle in a worker thread (the same analysis as `cli analyze`)."""
+    _runtime(request, session_id)
+    _token(request, session_id, x_session_token)
+    hub = _hub(request)
+    task = hub.analyses.get(session_id)
+    if task is None or task.done():
+        path = hub.store.bundle_path(session_id)
+        hub.analyses[session_id] = asyncio.get_running_loop().create_task(asyncio.to_thread(_analyse, path))
+    return {"status": "running"}
+
+
+@router.get("/sessions/{session_id}/report")
+async def report(
+    request: Request, session_id: str, x_session_token: Annotated[str | None, Header()] = None
+) -> dict[str, Any]:
+    """Results for the Lab: `running`, `error`, `none` (never analysed) or `done` with qc and checks."""
+    _runtime(request, session_id)
+    _token(request, session_id, x_session_token)
+    hub = _hub(request)
+    task = hub.analyses.get(session_id)
+    if task is not None and not task.done():
+        return {"status": "running"}
+    if task is not None and task.exception() is not None:
+        return {"status": "error", "error": f"{type(task.exception()).__name__}: {task.exception()}"}
+    file = hub.store.bundle_path(session_id) / "analysis" / "checks.json"
+    if not file.exists():
+        return {"status": "none"}
+    return {"status": "done", **json.loads(file.read_text(encoding="utf-8"))}
+
+
 @router.get("/sessions/{session_id}/events")
 async def events(
-    request: Request, session_id: str, from_seq: Annotated[int, Query(alias="from", ge=0)] = 0
+    request: Request,
+    session_id: str,
+    from_seq: Annotated[int, Query(alias="from", ge=0)] = 0,
+    x_session_token: Annotated[str | None, Header()] = None,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Catch-up for reconnect and replay: events with seq >= `from`."""
+    """Catch-up for reconnect and replay: events with seq >= `from`. Events carry scores, so they need the token."""
     rt = _runtime(request, session_id)
+    _token(request, session_id, x_session_token)
     return {"events": [e.model_dump() for e in rt.bus.since(from_seq)]}

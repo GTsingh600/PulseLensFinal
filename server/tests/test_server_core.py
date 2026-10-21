@@ -10,7 +10,7 @@ import pytest
 
 from pulselens.hub import CUSTOMER_FORBIDDEN_KEYS, CustomerPayloadError, assert_customer_safe
 from pulselens.pulses import sign_pulse
-from tests.conftest import PASSCODE, SECRET, create_session, default_ack, run_capture
+from tests.conftest import PASSCODE, SECRET, auth, create_session, default_ack, get_events, run_capture
 
 
 def bundle_dir(client, sid: str) -> Path:
@@ -26,9 +26,9 @@ def jsonl(path: Path) -> list[dict]:
 
 def test_events_have_strictly_increasing_seq_and_are_saved(client) -> None:
     s = create_session(client)
-    with client.websocket_connect(f"{s['ws_url']}?role=lab") as ws:
+    with client.websocket_connect(f"{s['ws_url']}?role=lab&token={s['token']}") as ws:
         run_capture(ws)
-    events = client.get(f"/api/sessions/{s['session_id']}/events").json()["events"]
+    events = get_events(client, s["session_id"])
     seqs = [e["seq"] for e in events]
     assert seqs == list(range(len(seqs))) and len(seqs) > 10
     assert events[0]["type"] == "session.created"
@@ -41,21 +41,21 @@ def test_events_have_strictly_increasing_seq_and_are_saved(client) -> None:
 def test_catch_up_returns_exactly_the_missed_events(client) -> None:
     s = create_session(client)
     sid = s["session_id"]
-    with client.websocket_connect(f"{s['ws_url']}?role=lab") as ws:
+    with client.websocket_connect(f"{s['ws_url']}?role=lab&token={s['token']}") as ws:
         run_capture(ws)
-    everything = client.get(f"/api/sessions/{sid}/events").json()["events"]
+    everything = get_events(client, sid)
     for seen_up_to in (0, 7, len(everything) - 2):
-        missed = client.get(f"/api/sessions/{sid}/events", params={"from": seen_up_to + 1}).json()["events"]
+        missed = get_events(client, sid, seen_up_to + 1)
         assert missed == everything[seen_up_to + 1 :]
-    assert client.get(f"/api/sessions/{sid}/events", params={"from": len(everything)}).json()["events"] == []
+    assert get_events(client, sid, len(everything)) == []
 
 
 def test_a_presenter_reconnecting_with_from_gets_the_missed_events_first(client) -> None:
     s = create_session(client)
-    with client.websocket_connect(f"{s['ws_url']}?role=lab") as ws:
+    with client.websocket_connect(f"{s['ws_url']}?role=lab&token={s['token']}") as ws:
         run_capture(ws)
-    everything = client.get(f"/api/sessions/{s['session_id']}/events").json()["events"]
-    with client.websocket_connect(f"{s['ws_url']}?role=presenter&from=5") as viewer:
+    everything = get_events(client, s["session_id"])
+    with client.websocket_connect(f"{s['ws_url']}?role=presenter&from=5&token={s['token']}") as viewer:
         got = [viewer.receive_json() for _ in range(len(everything) - 5)]
     assert [m["type"] for m in got] == ["event"] * len(got)
     assert [m["event"] for m in got] == everything[5:]
@@ -99,7 +99,7 @@ def test_customer_role_messages_never_contain_score_check_id_or_family(client) -
     assert {m["type"] for m in run.received} <= {"stage", "prompt", "pulse", "done"}
     leaked = _keys(run.received, set()) & {"score", "check_id", "family"}
     assert not leaked
-    events = client.get(f"/api/sessions/{sid}/events").json()["events"]
+    events = get_events(client, sid)
     assert sum(e["type"] == "check.result" for e in events) == 10  # they did happen, for viewers only
 
 
@@ -128,13 +128,13 @@ def test_viewers_cannot_connect_as_an_unknown_role(client) -> None:
 
 def test_a_pulse_ack_is_accepted_once_and_a_repeat_is_rejected(client) -> None:
     s = create_session(client)
-    with client.websocket_connect(f"{s['ws_url']}?role=lab") as ws:
+    with client.websocket_connect(f"{s['ws_url']}?role=lab&token={s['token']}") as ws:
         run = run_capture(ws, ack=lambda p: [default_ack(p), default_ack(p)])
     pulses = jsonl(bundle_dir(client, s["session_id"]) / "pulses.jsonl")
     assert len(pulses) == 10 and len(run.acks_sent) == 20
     assert len({p["pulse_id"] for p in pulses}) == 10
     assert all(p["ok"] for p in pulses)
-    errors = [e for e in client.get(f"/api/sessions/{s['session_id']}/events").json()["events"] if e["type"] == "error"]
+    errors = [e for e in get_events(client, s["session_id"]) if e["type"] == "error"]
     assert [e["payload"]["code"] for e in errors] == ["duplicate_ack"] * 10
 
 
@@ -151,7 +151,7 @@ def test_a_late_ack_is_logged_ok_false(client, clock) -> None:
             return ack
         return default_ack(pulse)
 
-    with client.websocket_connect(f"{s['ws_url']}?role=lab") as ws:
+    with client.websocket_connect(f"{s['ws_url']}?role=lab&token={s['token']}") as ws:
         run_capture(ws, ack=late)
     pulses = {p["pulse_id"].rsplit("-", 1)[-1]: p for p in jsonl(bundle_dir(client, s["session_id"]) / "pulses.jsonl")}
     assert pulses["2"]["ok"] is False and pulses["2"]["error"] == "late"
@@ -167,13 +167,9 @@ def test_an_ack_with_a_wrong_signature_or_unknown_pulse_is_rejected(client) -> N
         stranger = {**default_ack(pulse), "pulse_id": "not-a-pulse"}
         return [bad, stranger, default_ack(pulse)]
 
-    with client.websocket_connect(f"{s['ws_url']}?role=lab") as ws:
+    with client.websocket_connect(f"{s['ws_url']}?role=lab&token={s['token']}") as ws:
         run_capture(ws, ack=forged)
-    codes = [
-        e["payload"]["code"]
-        for e in client.get(f"/api/sessions/{s['session_id']}/events").json()["events"]
-        if e["type"] == "error"
-    ]
+    codes = [e["payload"]["code"] for e in get_events(client, s["session_id"]) if e["type"] == "error"]
     assert codes.count("bad_signature") == 10 and codes.count("unknown_pulse") == 10
     assert all(p["ok"] for p in jsonl(bundle_dir(client, s["session_id"]) / "pulses.jsonl"))
 
@@ -181,7 +177,7 @@ def test_an_ack_with_a_wrong_signature_or_unknown_pulse_is_rejected(client) -> N
 def test_pulses_are_signed_over_id_kind_params_and_session(client) -> None:
     s = create_session(client)
     released: list[dict] = []
-    with client.websocket_connect(f"{s['ws_url']}?role=lab") as ws:
+    with client.websocket_connect(f"{s['ws_url']}?role=lab&token={s['token']}") as ws:
         run_capture(ws, on_pulse=released.append)
     assert len(released) == 10
     for p in released:
@@ -245,7 +241,7 @@ def test_details_frames_and_finalize_write_the_bundle(client) -> None:
     assert [f["i"] for f in jsonl(b / "frames.jsonl")] == list(range(6))
     assert sorted(p.name for p in (b / "frames").iterdir()) == [m["file"] for m in meta_lines]
     assert sorted(p.name for p in (b / "fp").iterdir()) == ["000000.jpg", "000005.jpg"]
-    events = client.get(f"/api/sessions/{sid}/events").json()["events"]
+    events = get_events(client, sid)
     assert [e["type"] for e in events].count("camera.details") == 2
 
 
@@ -268,7 +264,7 @@ def test_unknown_sessions_are_404(client) -> None:
 
 def _wait_for_waiting(client, sid: str, count: int) -> list[str]:
     for _ in range(200):
-        events = client.get(f"/api/sessions/{sid}/events").json()["events"]
+        events = get_events(client, sid)
         stages = [e["payload"]["next"] for e in events if e["type"] == "orchestrator.waiting"]
         if len(stages) >= count:
             return stages
@@ -287,21 +283,27 @@ def test_step_mode_waits_for_next_before_each_stage(client) -> None:
     s = create_session(client, mode="step", product="demo")
     sid = s["session_id"]
     nxt = f"/api/sessions/{sid}/next"
-    with client.websocket_connect(f"{s['ws_url']}?role=lab") as ws:
+    with client.websocket_connect(f"{s['ws_url']}?role=lab&token={s['token']}") as ws:
         assert _wait_for_waiting(client, sid, 1) == ["camera"]
-        assert client.post(nxt).status_code == 204
+        assert client.post(nxt, headers=auth(client, sid)).status_code == 204
         assert _capture_msg(ws) == {"type": "stage", "stage": "camera", "prompt": None}
         ws.send_json({"type": "stage.done", "stage": "camera", "data": {}})
         assert _wait_for_waiting(client, sid, 2) == ["camera", "coach"]
-        assert client.post(nxt).status_code == 204
-        assert client.post(nxt).status_code in (204, 409)  # a double-click never skips the coach stage
+        assert client.post(nxt, headers=auth(client, sid)).status_code == 204
+        assert client.post(nxt, headers=auth(client, sid)).status_code in (
+            204,
+            409,
+        )  # a double-click never skips the coach stage
         assert _capture_msg(ws)["stage"] == "coach"
         ws.send_json({"type": "stage.done", "stage": "coach", "data": {}})
         assert _wait_for_waiting(client, sid, 3) == ["camera", "coach", "pulses"]
-        assert client.post(nxt).status_code == 204
+        assert client.post(nxt, headers=auth(client, sid)).status_code == 204
         run_capture(ws)
     live = create_session(client, mode="live")
-    assert client.post(f"/api/sessions/{live['session_id']}/next").status_code == 409
+    assert (
+        client.post(f"/api/sessions/{live['session_id']}/next", headers=auth(client, live["session_id"])).status_code
+        == 409
+    )
 
 
 def test_agent_actions_need_the_console_passcode(client) -> None:
@@ -314,15 +316,13 @@ def test_agent_actions_need_the_console_passcode(client) -> None:
     )
     r = client.post(url, json={"action": "approve", "note": "looked fine"}, headers={"X-Console-Passcode": PASSCODE})
     assert r.status_code == 202
-    actions = [
-        e for e in client.get(f"/api/sessions/{s['session_id']}/events").json()["events"] if e["type"] == "agent.action"
-    ]
+    actions = [e for e in get_events(client, s["session_id"]) if e["type"] == "agent.action"]
     assert actions[-1]["payload"] == {"action": "approve", "note": "looked fine"}
 
 
 def test_sessions_survive_a_server_restart_for_catch_up(make_client, tmp_path) -> None:
     first = make_client(data_dir=tmp_path / "shared")
     s = create_session(first)
-    before = first.get(f"/api/sessions/{s['session_id']}/events").json()["events"]
+    before = get_events(first, s["session_id"])
     second = make_client(data_dir=tmp_path / "shared")
-    assert second.get(f"/api/sessions/{s['session_id']}/events").json()["events"] == before
+    assert get_events(second, s["session_id"]) == before

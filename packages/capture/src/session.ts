@@ -18,6 +18,8 @@ import { collectCameraDetails, detectGyro, fpsFields } from "./details";
 import { detectChannel, secureContextError } from "./env";
 import { FrameGrabber, type GrabberSource } from "./grabber";
 import { LightOverlay, LightPulseExecutor } from "./light";
+import { lockForLight } from "./lock";
+import { nativeModes, runProbe } from "./probe";
 import { FrameUploader } from "./uploader";
 
 export type CapturePhase = "idle" | "starting" | "running" | "finalizing" | "done" | "error";
@@ -25,6 +27,8 @@ export type CapturePhase = "idle" | "starting" | "running" | "finalizing" | "don
 export interface CaptureState {
   phase: CapturePhase;
   sessionId: string | null;
+  /** the creator's session token (SessionCreated.token): opens events and the report */
+  token: string | null;
   stage: Stage | null;
   /** explainer key of the current customer prompt */
   promptKey: string | null;
@@ -60,7 +64,7 @@ export interface CaptureSessionOptions {
 
 export class CaptureSession {
   state: CaptureState = {
-    phase: "idle", sessionId: null, stage: null, promptKey: null, channel: null, details: null, coach: [],
+    phase: "idle", sessionId: null, token: null, stage: null, promptKey: null, channel: null, details: null, coach: [],
     frames: 0, uploaded: 0, dropped: 0, pulses: 0, acksOk: 0, doneKey: null, error: null,
   };
 
@@ -75,6 +79,11 @@ export class CaptureSession {
   private statsTimer: ReturnType<typeof setInterval> | undefined;
   private startResult: StartResult | null = null;
   private finishing: Promise<void> | null = null;
+  /** exposure and white balance frozen for the light suite (lock.ts); pulses wait for it */
+  private lockReady: Promise<void> | null = null;
+  private unlock: (() => Promise<void>) | null = null;
+  /** one-shot waiters for the next grabbed frame's time (the mode-switch probe) */
+  private frameWaiters: ((t: number) => void)[] = [];
 
   constructor(private readonly opts: CaptureSessionOptions) {
     this.api = opts.api ?? new CaptureApi();
@@ -99,7 +108,7 @@ export class CaptureSession {
       const created = await this.api.createSession({
         mode: this.opts.mode, product: this.opts.product, scenario: this.opts.scenario ?? null, label: this.opts.label ?? null,
       });
-      this.set({ sessionId: created.session_id, channel });
+      this.set({ sessionId: created.session_id, token: created.token, channel });
       this.cam = await openCamera(this.opts.video);
 
       const sessionId = created.session_id;
@@ -112,6 +121,7 @@ export class CaptureSession {
         onFrame: (f) => {
           this.uploader!.push(f);
           firstFrame();
+          for (const w of this.frameWaiters.splice(0)) w(f.meta.t);
         },
       });
       this.grabber.start();
@@ -127,7 +137,7 @@ export class CaptureSession {
         await this.api.postDetails(sessionId, details);
       })();
 
-      this.socket = await CaptureSocket.connect(created.ws_url, this.opts.role);
+      this.socket = await CaptureSocket.connect(created.ws_url, this.opts.role, created.token);
       this.socket.onMessage = (msg, receivedAt) => void this.handle(msg, receivedAt).catch((e) => this.fail(e));
       this.socket.onClose = () => {
         if (this.state.phase === "running") this.fail("Connection to the server closed.");
@@ -150,11 +160,13 @@ export class CaptureSession {
         this.set({ stage: msg.stage, promptKey: msg.prompt ?? null });
         if (msg.stage === "camera") {
           await this.detailsPosted;
+          const probe = await this.probe();
           await this.postFpsUpdate();
-          this.socket?.send({ type: "stage.done", stage: "camera", data: { details_posted: true } });
+          this.socket?.send({ type: "stage.done", stage: "camera", data: { details_posted: true, probe } });
         } else if (msg.stage === "coach") {
           await this.coach();
         } else if (msg.stage === "pulses") {
+          this.lockCamera();
           this.showOverlay();
         }
         return;
@@ -168,6 +180,43 @@ export class CaptureSession {
         return this.finish(msg.key);
       case "event":
         return; // lab role: the event stream, for screens that show it (M2.2 live plots)
+    }
+  }
+
+  /** SPEC 7.3 mode-switch probe; posts probe.jsonl and the native modes found. Never fails the session. */
+  private async probe(): Promise<{ requests: number; accepted: number } | { error: string }> {
+    if (!this.cam || !this.state.sessionId) return { error: "no camera" };
+    const video = this.opts.video;
+    const sessionId = this.state.sessionId;
+    const previous = this.state.promptKey;
+    this.set({ promptKey: "prompt.probe" });
+    try {
+      const rows = await runProbe({
+        track: this.cam.track,
+        videoSize: () => [video.videoWidth, video.videoHeight],
+        nextFrame: (timeoutMs) =>
+          new Promise((resolve) => {
+            const timer = setTimeout(() => resolve(null), timeoutMs);
+            this.frameWaiters.push((t) => {
+              clearTimeout(timer);
+              resolve(t);
+            });
+          }),
+        framesSeen: () => this.grabber?.stats().frames ?? 0,
+        dropped: () => video.getVideoPlaybackQuality?.().droppedVideoFrames ?? null,
+        now: () => performance.now(),
+        sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+        resizeModeSupported: "resizeMode" in (navigator.mediaDevices.getSupportedConstraints?.() ?? {}),
+      });
+      await this.api.postProbe(sessionId, rows);
+      const native_modes = nativeModes(rows);
+      if (this.state.details) this.set({ details: { ...this.state.details, native_modes } });
+      await this.api.postDetails(sessionId, { native_modes });
+      return { requests: rows.filter((r) => !r.skipped).length, accepted: rows.filter((r) => r.ok).length };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) };
+    } finally {
+      this.set({ promptKey: previous });
     }
   }
 
@@ -191,6 +240,18 @@ export class CaptureSession {
     });
   }
 
+  private lockCamera(): void {
+    if (this.lockReady || !this.cam) return;
+    const track = this.cam.track;
+    this.lockReady = (async () => {
+      const { lock, restore } = await lockForLight(track, this.grabber?.stats().fpsMedian ?? null);
+      this.unlock = restore;
+      if (!lock || !this.state.sessionId) return;
+      if (this.state.details) this.set({ details: { ...this.state.details, camera_lock: lock } });
+      await this.api.postDetails(this.state.sessionId, { camera_lock: lock }).catch(() => undefined);
+    })();
+  }
+
   private showOverlay(): void {
     if (this.overlay) return;
     const mode = this.state.channel === "mobile_browser" ? "fullscreen" : "border";
@@ -204,6 +265,8 @@ export class CaptureSession {
     this.set({ pulses: this.state.pulses + 1 });
     let ack: PulseAck;
     if (msg.kind === "light") {
+      this.lockCamera();
+      await this.lockReady;
       this.showOverlay();
       ack = await this.executor!.run(msg, receivedAt);
     } else {
@@ -223,6 +286,7 @@ export class CaptureSession {
       this.set({ phase: "finalizing", doneKey });
       this.overlay?.unmount();
       this.overlay = null;
+      await this.unlock?.();
       this.grabber?.stop();
       clearInterval(this.statsTimer);
       await this.uploader?.stop();

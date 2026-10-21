@@ -72,6 +72,18 @@ def client(make_client) -> TestClient:
     return make_client()
 
 
+def auth(client: TestClient, sid: str) -> dict[str, str]:
+    """The creator's session token header (SessionCreated.token)."""
+    return {"X-Session-Token": client.app.state.hub.console_token(sid)}
+
+
+def get_events(client: TestClient, sid: str, from_seq: int | None = None) -> list[dict]:
+    params = {} if from_seq is None else {"from": from_seq}
+    r = client.get(f"/api/sessions/{sid}/events", params=params, headers=auth(client, sid))
+    assert r.status_code == 200, r.text
+    return r.json()["events"]
+
+
 def create_session(client: TestClient, **body: Any) -> dict:
     r = client.post("/api/sessions", json={"mode": "superset", "product": "lab", **body})
     assert r.status_code == 200, r.text

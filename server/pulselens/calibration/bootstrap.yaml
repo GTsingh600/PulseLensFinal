@@ -18,5 +18,25 @@ optical.face_neck:
   ratio_log_scale: 0.693       # ln 2 per score unit beyond that
   tau: 3.0                # = calibration.provisional_tau in config.yaml
   min_pairs: 3            # pulses with both echoes needed to judge
+  min_snr: 2.0            # an echo is timed only when its amplitude is at least 2x its own threshold (8 sigma)
   neck_min_coverage: 0.5  # share of the neck box inside the frame
   saturation: 0.95        # linear channel mean above which the neck is clipped
+
+# Camera reality (SPEC 9.2). Physics and literature bounds, far from both the G1 webcam (fingerprint PCE 459-1567,
+# mid-grey noise sigma ~0.007 linear) and synthetic video (PCE ~0, noise ~0). Calibration replaces them.
+camera.timing:
+  max_gap_ms: 1000        # a stall longer than this is a source that stopped, not a camera
+camera.duplicates:
+  max_share: 0.05         # exact repeats of the previous frame
+  min_frames: 30
+camera.noise_curve:
+  min_noise_mid: 0.0015   # temporal noise sigma at mid-grey (linear) below which the video is too clean for a sensor
+camera.fingerprint:
+  min_pce: 50             # PCE between odd- and even-frame fingerprints; PRNU work treats ~60 as a match. 200 was
+                          # tried (Chromium's fake camera scored 97) but failed a genuine D01 session at 174
+camera.modes:
+  fov_tolerance: 0.05     # relative change of scale that counts as "the view moved"
+camera.claim_mismatch:
+  low_noise_mid: 0.002    # "perfectly clean": below this noise ...
+  low_timing_cv: 0.01     # ... and below this frame-interval spread
+  fps_over_claim: 1.2     # or measured fps above 1.2x the claimed rate

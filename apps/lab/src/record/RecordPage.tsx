@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { CameraCard } from "../components/CameraCard";
 import { ExplainPanel } from "../components/ExplainPanel";
 import { OperatorForm } from "./OperatorForm";
+import { ResultsCard, useReport } from "./ResultsCard";
 
 const STAGE_KEYS: Record<Stage, ExplainerKey> = {
   camera: "stage.camera",
@@ -17,6 +18,10 @@ const STAGE_KEYS: Record<Stage, ExplainerKey> = {
 
 const promptText = (key: string) => explainMaybe(key)?.text ?? "";
 
+function Results({ sessionId, token }: { sessionId: string; token: string }) {
+  return <ResultsCard report={useReport(sessionId, token)} />;
+}
+
 /**
  * Lab Record, minimal (M1.6): operator form → hand to volunteer → camera, coach and light suite with the stage
  * explainer and a basic Camera card → a labelled bundle uploaded. The superset protocol is M2.2.
@@ -27,7 +32,13 @@ export function RecordPage() {
   const video = useRef<HTMLVideoElement>(null);
   const session = useRef<CaptureSession | null>(null);
 
-  useEffect(() => () => void session.current?.fail("Left the Record page."), []);
+  useEffect(
+    () => () => {
+      const s = session.current;
+      if (s && s.state.phase !== "done" && s.state.phase !== "error") void s.fail("Left the Record page.");
+    },
+    [],
+  );
 
   const start = () => {
     const tap = startTap(); // first, inside the click: fullscreen and motion permission need the gesture
@@ -72,6 +83,7 @@ export function RecordPage() {
             Record another
           </button>
         </section>
+        {state.sessionId && state.token && <Results sessionId={state.sessionId} token={state.token} />}
       </main>
     );
   }

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import cv2
 import numpy as np
 
 from pulselens.vision.face import Box, FaceRegions
@@ -42,3 +43,11 @@ def region_means(img: np.ndarray, regions: FaceRegions | None) -> dict[str, tupl
         "neck": (_mean(img, (regions.neck,)) if neck_ok else _NAN3.copy(), regions.neck_coverage if neck_ok else 0.0),
         "background": (background, float(mask.mean())),
     }
+
+
+def dhash(rgb: np.ndarray) -> int:
+    """64-bit difference hash (SPEC 9.2 camera.duplicates): 9x8 grey thumbnail, one bit per horizontal step."""
+    grey = cv2.cvtColor(np.asarray(rgb, dtype=np.uint8), cv2.COLOR_RGB2GRAY)
+    small = cv2.resize(grey, (9, 8), interpolation=cv2.INTER_AREA)
+    bits = (small[:, 1:] > small[:, :-1]).ravel()
+    return int(sum(1 << k for k, b in enumerate(bits) if b))

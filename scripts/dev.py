@@ -111,7 +111,22 @@ def test_web(_: argparse.Namespace) -> None:
 def e2e(args: argparse.Namespace) -> None:
     need_venv()
     run("npx", "playwright", "install", "chromium")
-    run("npx", "playwright", "test", *args.rest)
+    run("npx", "playwright", "test", "--project=chromium-fake-camera", *args.rest)
+
+
+def e2e_brave(args: argparse.Namespace) -> None:
+    """The same e2e suite in the installed Brave, headed; no browser download."""
+    need_venv()
+    run("npx", "playwright", "test", "--project=brave-fake-camera", "--project=brave-replay", *args.rest)
+
+
+def coverage(_: argparse.Namespace) -> None:
+    """Line coverage for the server (pytest-cov) and every web workspace (vitest v8)."""
+    need_venv()
+    run(VENV_PY, "-m", "pytest", "server/tests", "--cov=pulselens", "--cov-report=term-missing:skip-covered",
+        check=False)
+    run("npm", "run", "test", "--workspaces", "--if-present", "--", "--coverage",
+        "--coverage.reporter=text-summary", check=False)
 
 
 def lint(_: argparse.Namespace) -> None:
@@ -135,7 +150,8 @@ def types(_: argparse.Namespace) -> None:
 
 TASKS = {
     "setup": setup, "server": server, "lab": lab, "demo": demo, "tunnel": tunnel,
-    "test": test, "test-web": test_web, "e2e": e2e, "lint": lint, "types": types, "explainers": explainers,
+    "test": test, "test-web": test_web, "e2e": e2e, "e2e-brave": e2e_brave, "coverage": coverage, "lint": lint,
+    "types": types, "explainers": explainers,
 }
 
 

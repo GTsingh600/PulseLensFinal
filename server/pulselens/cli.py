@@ -17,6 +17,7 @@ from pulselens.calibration.thresholds import Thresholds
 from pulselens.config import MODELS_DIR, load_config
 from pulselens.store import (
     analysis_dir,
+    iter_fingerprint_images,
     iter_frame_images,
     read_bundle,
     read_landmarks,
@@ -25,6 +26,27 @@ from pulselens.store import (
 )
 
 FACE_MODEL = MODELS_DIR / "mediapipe" / "face_landmarker.task"
+
+
+def _probe_with_fov(bundle) -> list[dict]:
+    """probe.jsonl rows, each with `fov_scale` between the working frames nearest `before_t` and `after_t`."""
+    import cv2
+
+    from pulselens.vision.modes import fov_scale
+
+    def frame_at(t):
+        if not isinstance(t, int | float) or not bundle.frames:
+            return None
+        meta = min(bundle.frames, key=lambda f: abs(f["t"] - t))
+        img = cv2.imread(str(bundle.path / "frames" / meta["file"]), cv2.IMREAD_COLOR)
+        return cv2.cvtColor(img, cv2.COLOR_BGR2RGB) if img is not None else None
+
+    rows = []
+    for row in bundle.probe:
+        before, after = frame_at(row.get("before_t")), frame_at(row.get("after_t"))
+        scale = fov_scale(before, after) if before is not None and after is not None else None
+        rows.append({**row, "fov_scale": scale})
+    return rows
 
 
 def _landmarks(bundle, use_cache: bool) -> dict:
@@ -49,34 +71,69 @@ def _landmarks(bundle, use_cache: bool) -> dict:
     return found
 
 
+def quality_card(ctx, bundle) -> dict:
+    """The Record end screen's QC card (SPEC 13.3 step 4): numbers measured on this session only."""
+
+    def seen(r):
+        return float((r.coverage >= 0.5).mean()) if r is not None and len(r.coverage) else None
+
+    fin = bundle.meta.get("finalize") or {}
+    return {
+        "fps": ctx.fps,
+        "frames": len(ctx.t),
+        "dropped": fin.get("dropped"),
+        "acks_ok": fin.get("acks_ok"),
+        "pulses": fin.get("pulses"),
+        "clock_source": bundle.camera_details.get("clock_source"),
+        "browser": bundle.camera_details.get("browser"),
+        "face_visible": seen(ctx.regions.get("skin")),
+        "neck_visible": seen(ctx.regions.get("neck")),
+    }
+
+
+def run_analysis(bundle, use_cache: bool = True):
+    """Every registered check on one bundle; writes analysis/checks.json. Shared by the CLI and POST /analyze."""
+    from pulselens.vision.prnu import fingerprint
+
+    landmarks = _landmarks(bundle, use_cache)
+    thresholds = Thresholds.bootstrap()
+    quality = load_config()["quality"]
+    ctx = build_context(
+        ((meta, image, landmarks.get(meta["i"])) for meta, image in iter_frame_images(bundle)),
+        bundle.pulses,
+        thresholds=thresholds,
+        profile=bundle.camera_details.get("profile_measured"),
+        quality_min=float(quality["min"]),
+        min_fps=float(quality["min_fps"]),
+        details=bundle.camera_details,
+        probe=_probe_with_fov(bundle),
+        fingerprint=fingerprint(iter_fingerprint_images(bundle)),
+    )
+    results = run_checks(ctx)
+    payload = {
+        "session_id": bundle.session_id,
+        "generated_by": f"pulselens {__version__} analyze",
+        "frames": len(ctx.t),
+        "pulses": len(bundle.pulses),
+        "provisional_thresholds": thresholds.provisional,
+        "qc": quality_card(ctx, bundle),
+        "checks": [r.model_dump() for r in results],
+    }
+    write_json(analysis_dir(bundle) / "checks.json", payload)
+    return ctx, results, payload
+
+
 def analyze(path: Path, plots: bool, use_cache: bool) -> int:
     try:
         bundle = read_bundle(path)
     except FileNotFoundError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
-    landmarks = _landmarks(bundle, use_cache)
+    if bundle.skipped:
+        print(f"Skipped {bundle.skipped} unreadable line(s) in frames.jsonl / pulses.jsonl")
+    ctx, results, _ = run_analysis(bundle, use_cache)
     thresholds = Thresholds.bootstrap()
-    ctx = build_context(
-        ((meta, image, landmarks.get(meta["i"])) for meta, image in iter_frame_images(bundle)),
-        bundle.pulses,
-        thresholds=thresholds,
-        profile=bundle.camera_details.get("profile_measured"),
-        quality_min=float(load_config()["quality"]["min"]),
-    )
-    results = run_checks(ctx)
     out = analysis_dir(bundle)
-    write_json(
-        out / "checks.json",
-        {
-            "session_id": bundle.session_id,
-            "generated_by": f"pulselens {__version__} cli analyze",
-            "frames": len(ctx.t),
-            "pulses": len(bundle.pulses),
-            "provisional_thresholds": thresholds.provisional,
-            "checks": [r.model_dump() for r in results],
-        },
-    )
 
     print(f"\nSession {bundle.session_id}: {len(ctx.t)} frames, {len(ctx.colour_pulses)} colour pulses")
     if thresholds.provisional:
