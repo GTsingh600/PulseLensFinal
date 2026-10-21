@@ -23,6 +23,14 @@ describe("CameraCard with partial and mismatched details", () => {
     expect(field("field.fps")).toContain("15.6 fps, jitter 7.0 ms");
   });
 
+  it("warns that Brave alters pixel data, and only on Brave", () => {
+    const { unmount } = render(<CameraCard details={g1Laptop} />);
+    expect(screen.getByRole("note").textContent).toBe(explain("notice.brave").text);
+    unmount();
+    render(<CameraCard details={{ ...g1Laptop, browser: "Chrome 155" }} />);
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+
   it("omits the claimed profile when it matches", () => {
     render(<CameraCard details={{ ...g1Laptop, profile_claimed: "desktop_browser|lt20" }} />);
     expect(field("field.profile")).not.toContain("claimed");

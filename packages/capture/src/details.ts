@@ -17,6 +17,19 @@ interface UADataLike {
 
 const uaData = () => (navigator as Navigator & { userAgentData?: UADataLike }).userAgentData;
 
+/**
+ * UA-CH platformVersion is not the marketing version on Windows: 13 and up is Windows 11, 1 to 12 is Windows 10,
+ * 0 is older. Elsewhere it is the OS version (Android 14.0.0, macOS 14.5.0).
+ */
+export function osName(platform: string, version: string | undefined): string {
+  if (!version) return platform;
+  if (platform === "Windows") {
+    const major = Number.parseInt(version, 10);
+    return major >= 13 ? "Windows 11" : major >= 1 ? "Windows 10" : "Windows";
+  }
+  return `${platform} ${version}`;
+}
+
 /** Browser and OS from UA client hints where available, else from the UA string. */
 export async function browserAndOs(): Promise<{ browser: string; os: string; uaMobile: boolean | null }> {
   const parsed = parseUserAgent(navigator.userAgent);
@@ -28,7 +41,7 @@ export async function browserAndOs(): Promise<{ browser: string; os: string; uaM
       ?? hi.fullVersionList?.find((b) => /Chromium/i.test(b.brand));
     return {
       browser: brand ? `${brand.brand} ${brand.version.split(".")[0]}` : parsed.browser,
-      os: data.platform ? `${data.platform}${hi.platformVersion ? ` ${hi.platformVersion}` : ""}` : parsed.os,
+      os: data.platform ? osName(data.platform, hi.platformVersion) : parsed.os,
       uaMobile: data.mobile,
     };
   } catch {

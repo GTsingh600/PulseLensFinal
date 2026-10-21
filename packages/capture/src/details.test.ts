@@ -59,12 +59,12 @@ describe("browserAndOs", () => {
 
   // UA-CH platformVersion on Windows is not the marketing version: 13.0.0 and up is Windows 11, 1 to 10 is
   // Windows 10. The Brave session recorded at G1 showed "Windows 19.0.0" on the Camera card.
-  it.fails("maps a Windows platformVersion of 13 or more to Windows 11", async () => {
+  it("maps a Windows platformVersion of 13 or more to Windows 11", async () => {
     stubUaData({ platformVersion: "19.0.0", brands: BRAVE });
     expect((await browserAndOs()).os).toBe("Windows 11");
   });
 
-  it.fails("maps a Windows platformVersion below 13 to Windows 10", async () => {
+  it("maps a Windows platformVersion below 13 to Windows 10", async () => {
     stubUaData({ platformVersion: "10.0.0", brands: BRAVE });
     expect((await browserAndOs()).os).toBe("Windows 10");
   });

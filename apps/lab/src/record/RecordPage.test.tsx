@@ -13,8 +13,10 @@ class FakeSession {
     this.opts = opts;
     sessions.push(this);
   }
+  state: CaptureState = { ...IDLE };
   emit(patch: Partial<CaptureState>) {
-    act(() => this.opts.onChange({ ...IDLE, ...patch }));
+    this.state = { ...IDLE, ...patch };
+    act(() => this.opts.onChange(this.state));
   }
 }
 
@@ -113,7 +115,7 @@ describe("RecordPage unmount", () => {
 
   // After "Recording saved" there is nothing to stop, but leaving the page still calls fail(), which logs
   // "Capture session failed" and flips a finished session to the error phase.
-  it.fails("does not fail a session that already finished", async () => {
+  it("does not fail a session that already finished", async () => {
     const view = render(<RecordPage />);
     fillForm();
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Start" })));

@@ -27,7 +27,13 @@ export function RecordPage() {
   const video = useRef<HTMLVideoElement>(null);
   const session = useRef<CaptureSession | null>(null);
 
-  useEffect(() => () => void session.current?.fail("Left the Record page."), []);
+  useEffect(
+    () => () => {
+      const s = session.current;
+      if (s && s.state.phase !== "done" && s.state.phase !== "error") void s.fail("Left the Record page.");
+    },
+    [],
+  );
 
   const start = () => {
     const tap = startTap(); // first, inside the click: fullscreen and motion permission need the gesture

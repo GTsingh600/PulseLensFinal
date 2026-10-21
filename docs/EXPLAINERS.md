@@ -407,6 +407,9 @@ Both sites show these texts word for word. `scripts/build_explainers.ts` parses 
 ### notice.flash
 - text: The screen will change colour a few times. If flashing light is a problem for you, tap here and an agent will help instead.
 
+### notice.brave
+- text: This is Brave. Brave hides the graphics card and can add tiny changes to pixels a page reads back, which the camera checks measure. For Lab recordings, use Chrome or Edge.
+
 ### prompt.probe
 - text: Checking your camera. The picture may flicker for a moment.
 
