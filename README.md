@@ -33,6 +33,30 @@ A person (the V-CIP agent) always makes the final call. PulseLens never auto-rej
 
 **Why prebuilt detectors only as features?** Detectors like SBI are trained on offline, compressed fakes, and their accuracy drops on unseen data (cross-dataset AUC around 0.72–0.89 in reproductions), and further on Indian webcams and faces. They also tend to fail together. They enter as one family, scored against genuine sessions and weighted by fusion, never as the only vote. No faces are sent to third-party APIs.
 
+## What changed from the original idea
+
+The original pitch (final deck v6) was "Deepfakes fool faces. PulseLens checks the camera": three questions (real camera, live physics, same camera all call), with **the face lagging the neck** as the star test. The research and our recordings kept the frame but moved where the strength against live swaps comes from. Full reasoning: [`docs/research/deck_review.md`](docs/research/deck_review.md).
+
+| | Original idea | What changed | Why it is better |
+|---|---|---|---|
+| Core claim against live swaps | The face lags the neck when the screen flashes | The face is a repainted patch of a real frame; test whether it reflects light, shows noise and shades in 3-D like the real neck | Live swaps may copy our flash in the same frame, with no lag; a repaint can't easily fake 3-D shading or sensor noise |
+| Structure | 3 questions | 4 questions: real camera, live scene, same surface as the neck, holds up under stress | Each targets a different attack, so fusing them across families means something |
+| Face-vs-neck check | Timing (lag) | Echo strength (built), colour direction (planned), safe abstaining | One webcam frame (64–96 ms) is longer than the lag limit, so timing falsely failed genuine users |
+| Split-screen flash | One of three echoes | The main optical test against live swaps | The one optical test a colour transfer can't fake (Face Flashing, Gerstner & Farid) |
+| Heart rate, multi-site pulse | Stretch goal; "noise follows pulse" | Lab-only measurement; the flash replaces it ("a pulse we control") | A live swap copies the attacker's real pulse (r = 0.89); our cameras are too slow to read one |
+| Prebuilt AI models | Not in the plan | SBI and MiniFASNet scored as one family | They cover blending seams physics can't see, without being the sole judge |
+| Challenges | Tilt and hand occlusion | Profile turn with identity tracking and Android vibration added; hand occlusion demoted | Pose challenges scored best in the live-swap study; masks now defeat hand occlusion |
+| Eye reflection | — | Screen glint in the cornea (idea) | A swap regenerates the eyes, so the reflection should be lost or wrong |
+| Sensor fingerprint | "Missing in generated video" | Supporting evidence only, limit 50 | Chromium's fake camera produced a stable fingerprint (PCE 97) |
+| Camera checks | Planned | Built: mode probe, noise curve, fingerprint, timing, duplicates, rules, plus an exposure lock | They catch the fake camera, pass the real one, and line up with CEN/TS 18099 |
+| Decisions | Rules with per-device thresholds | Thresholds learned from genuine sessions only, then logistic-regression fusion, with error rates per device and skin tone | Fits our data size: few attack samples, and two-class models generalise badly to unseen attacks |
+| India claims | "Built for real Indian phones" | A measured-vs-assumed list: budget phones, tube lights, skin tones, languages and live swaps are all untested | Honest, and it gives a concrete test plan |
+| Prior work | Novelty table missing the two closest papers | Gerstner & Farid 2022 and An et al. 2024 cited, with what is different | Keeps "we didn't find, not first" credible |
+
+**Unchanged, because the research backs it:** camera first, random active light against replays, never auto-reject, abstain on weak devices, the agent in the loop, hold only when two families flag, the continuity lock, no pulse stored.
+
+**Still to prove:** none of the new swap-specific tests has been run against a real live swap yet. Whether the new idea beats the old one depends on recording Deep-Live-Cam sessions first.
+
 ## Built for India, and what is not measured yet
 
 | Indian reality | How the design handles it | Status |
