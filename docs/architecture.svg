@@ -1,97 +1,195 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="680" height="840" viewBox="0 0 680 840" role="img">
-<title>PulseLens architecture and build status</title>
-<desc>Browser capture feeds a self-hosted server that asks four questions: real camera, live scene, same surface as the neck, holds up under stress. Results go to a decide layer and five outcomes. Teal is built, coral dashed is not built, grey dashed is not yet measured for India.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="964" viewBox="0 0 1200 964" role="img">
+<title>PulseLens end-to-end system with build status</title>
+<desc>Applicant device, PulseLens service and bank systems. The service picks a plan per measured device tier and asks four questions: real camera, live scene, same surface as the neck, holds up under stress. Teal is built, grey dashed is planned in the spec, coral dashed is new since the research.</desc>
 <style>
-text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
-.th { font-size: 14px; font-weight: 600; fill: #2C2C2A; }
-.ts { font-size: 12px; fill: #5F5E5A; }
-.box { fill: #F7F6F2; stroke: #B4B2A9; }
-.col { fill: #FFFFFF; stroke: #D3D1C7; }
-.teal rect { fill: #E1F5EE; stroke: #0F6E56; }
-.teal .th, .teal .ts { fill: #085041; }
-.coral rect { fill: #FAECE7; stroke: #993C1D; stroke-dasharray: 4 3; }
-.coral .th, .coral .ts { fill: #712B13; }
-.dash { stroke-dasharray: 4 3; }
-.arr { stroke: #888780; stroke-width: 1.5; fill: none; }
+text{font-family:"Segoe UI",-apple-system,Helvetica,Arial,sans-serif}
+.h1{font-size:24px;font-weight:700;fill:#13223F}.h2{font-size:16px;font-weight:700;fill:#13223F}
+.ti{font-size:14px;font-weight:600;fill:#13223F}.su{font-size:12px;fill:#5F5E5A}.it{font-size:12px;fill:#2C2C2A}
+.kick{font-size:12px;font-weight:700;fill:#0F6E56;letter-spacing:1px}
+.col{fill:none;stroke:#888780;stroke-width:1.2;stroke-dasharray:6 4}
+.built{fill:#E1F5EE;stroke:#0F6E56;stroke-width:0.8}
+.planned{fill:#F4F3EF;stroke:#888780;stroke-width:0.8;stroke-dasharray:4 3}
+.new{fill:#FAECE7;stroke:#D85A30;stroke-width:0.8;stroke-dasharray:4 3}
+.q{fill:#FFFFFF;stroke:#B4B2A9;stroke-width:0.8}
+.navy{fill:#13223F}.nt{font-size:14px;font-weight:600;fill:#FFFFFF}.ns{font-size:12px;fill:#B5D4F4}
+.pill{fill:#F1EFE8}.pt{font-size:11px;fill:#444441}
+.arr{stroke:#5F5E5A;stroke-width:1.3;fill:none}
+.d-built{fill:#1D9E75}.d-planned{fill:#FFFFFF;stroke:#888780;stroke-width:1.2}.d-new{fill:#D85A30}
 </style>
-<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
-<rect x="0" y="0" width="680" height="840" fill="#FFFFFF"/>
-
-<rect class="box" x="40" y="40" width="600" height="104" rx="12" stroke-width="0.5"/>
-<text class="th" x="56" y="62" dominant-baseline="central">Capture in the customer's browser, no app</text>
-<g class="teal"><rect x="52" y="80" width="104" height="40" rx="4" stroke-width="0.5"/><text class="ts" x="104" y="100" text-anchor="middle" dominant-baseline="central">Camera probe</text></g>
-<g class="teal"><rect x="170" y="80" width="104" height="40" rx="4" stroke-width="0.5"/><text class="ts" x="222" y="100" text-anchor="middle" dominant-baseline="central">Exposure lock</text></g>
-<g class="teal"><rect x="288" y="80" width="104" height="40" rx="4" stroke-width="0.5"/><text class="ts" x="340" y="100" text-anchor="middle" dominant-baseline="central">Random flash</text></g>
-<g class="coral"><rect x="406" y="80" width="104" height="40" rx="4" stroke-width="0.5"/><text class="ts" x="458" y="100" text-anchor="middle" dominant-baseline="central">Split flash</text></g>
-<g class="coral"><rect x="524" y="80" width="104" height="40" rx="4" stroke-width="0.5"/><text class="ts" x="576" y="100" text-anchor="middle" dominant-baseline="central">Vibration</text></g>
-
-<line x1="340" y1="144" x2="340" y2="170" class="arr" marker-end="url(#arrow)"/>
-
-<rect class="box" x="40" y="172" width="600" height="308" rx="12" stroke-width="0.5"/>
-<text class="th" x="56" y="194" dominant-baseline="central">Analysis server, self-hosted in India, stores no pulse</text>
-
-<rect class="col" x="52" y="210" width="135" height="254" rx="8" stroke-width="0.5"/>
-<text class="th" x="119.5" y="230" text-anchor="middle" dominant-baseline="central">Real camera?</text>
-<text class="ts" x="119.5" y="248" text-anchor="middle" dominant-baseline="central">Camera family</text>
-<g class="teal"><rect x="60" y="266" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="119.5" y="279" text-anchor="middle" dominant-baseline="central">Mode switch</text></g>
-<g class="teal"><rect x="60" y="298" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="119.5" y="311" text-anchor="middle" dominant-baseline="central">Noise curve</text></g>
-<g class="teal"><rect x="60" y="330" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="119.5" y="343" text-anchor="middle" dominant-baseline="central">Fingerprint</text></g>
-<g class="teal"><rect x="60" y="362" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="119.5" y="375" text-anchor="middle" dominant-baseline="central">Frame timing</text></g>
-<g class="teal"><rect x="60" y="394" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="119.5" y="407" text-anchor="middle" dominant-baseline="central">Duplicates</text></g>
-<g class="teal"><rect x="60" y="426" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="119.5" y="439" text-anchor="middle" dominant-baseline="central">Device rules</text></g>
-
-<rect class="col" x="199" y="210" width="135" height="254" rx="8" stroke-width="0.5"/>
-<text class="th" x="266.5" y="230" text-anchor="middle" dominant-baseline="central">Live scene?</text>
-<text class="ts" x="266.5" y="248" text-anchor="middle" dominant-baseline="central">Light echo</text>
-<g class="teal"><rect x="207" y="266" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="266.5" y="279" text-anchor="middle" dominant-baseline="central">Echo delay</text></g>
-<g class="coral"><rect x="207" y="298" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="266.5" y="311" text-anchor="middle" dominant-baseline="central">Flicker filter</text></g>
-
-<rect class="col" x="346" y="210" width="135" height="254" rx="8" stroke-width="0.5"/>
-<text class="th" x="413.5" y="230" text-anchor="middle" dominant-baseline="central">Same as neck?</text>
-<text class="ts" x="413.5" y="248" text-anchor="middle" dominant-baseline="central">Surface physics</text>
-<g class="teal"><rect x="354" y="266" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="413.5" y="279" text-anchor="middle" dominant-baseline="central">Echo vs neck</text></g>
-<g class="coral"><rect x="354" y="298" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="413.5" y="311" text-anchor="middle" dominant-baseline="central">Split cheeks</text></g>
-<g class="coral"><rect x="354" y="330" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="413.5" y="343" text-anchor="middle" dominant-baseline="central">Noise, sharpness</text></g>
-<g class="coral"><rect x="354" y="362" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="413.5" y="375" text-anchor="middle" dominant-baseline="central">Eye glint</text></g>
-<g class="coral"><rect x="354" y="394" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="413.5" y="407" text-anchor="middle" dominant-baseline="central">Pulse (lab only)</text></g>
-
-<rect class="col" x="493" y="210" width="135" height="254" rx="8" stroke-width="0.5"/>
-<text class="th" x="560.5" y="230" text-anchor="middle" dominant-baseline="central">Holds up?</text>
-<text class="ts" x="560.5" y="248" text-anchor="middle" dominant-baseline="central">Stress tests</text>
-<g class="coral"><rect x="501" y="266" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="560.5" y="279" text-anchor="middle" dominant-baseline="central">SBI seams</text></g>
-<g class="coral"><rect x="501" y="298" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="560.5" y="311" text-anchor="middle" dominant-baseline="central">MiniFASNet</text></g>
-<g class="coral"><rect x="501" y="330" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="560.5" y="343" text-anchor="middle" dominant-baseline="central">Turn identity</text></g>
-<g class="coral"><rect x="501" y="362" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="560.5" y="375" text-anchor="middle" dominant-baseline="central">Vibration shake</text></g>
-<g class="coral"><rect x="501" y="394" width="119" height="26" rx="4" stroke-width="0.5"/><text class="ts" x="560.5" y="407" text-anchor="middle" dominant-baseline="central">Hand occlusion</text></g>
-
-<line x1="340" y1="480" x2="340" y2="506" class="arr" marker-end="url(#arrow)"/>
-
-<rect class="box" x="40" y="508" width="600" height="108" rx="12" stroke-width="0.5"/>
-<text class="th" x="56" y="530" dominant-baseline="central">Decide</text>
-<g class="teal"><rect x="52" y="546" width="104" height="56" rx="4" stroke-width="0.5"/><text class="th" x="104" y="566" text-anchor="middle" dominant-baseline="central">Thresholds</text><text class="ts" x="104" y="584" text-anchor="middle" dominant-baseline="central">Provisional</text></g>
-<g class="teal"><rect x="170" y="546" width="104" height="56" rx="4" stroke-width="0.5"/><text class="th" x="222" y="566" text-anchor="middle" dominant-baseline="central">Results</text><text class="ts" x="222" y="584" text-anchor="middle" dominant-baseline="central">Lab only</text></g>
-<g class="coral"><rect x="288" y="546" width="104" height="56" rx="4" stroke-width="0.5"/><text class="th" x="340" y="566" text-anchor="middle" dominant-baseline="central">Planner</text><text class="ts" x="340" y="584" text-anchor="middle" dominant-baseline="central">Per device</text></g>
-<g class="coral"><rect x="406" y="546" width="104" height="56" rx="4" stroke-width="0.5"/><text class="th" x="458" y="566" text-anchor="middle" dominant-baseline="central">Fusion</text><text class="ts" x="458" y="584" text-anchor="middle" dominant-baseline="central">Calibrated LR</text></g>
-<g class="coral"><rect x="524" y="546" width="104" height="56" rx="4" stroke-width="0.5"/><text class="th" x="576" y="566" text-anchor="middle" dominant-baseline="central">Agent</text><text class="ts" x="576" y="584" text-anchor="middle" dominant-baseline="central">Never rejects</text></g>
-
-<line x1="340" y1="616" x2="340" y2="642" class="arr" marker-end="url(#arrow)"/>
-
-<rect class="box" x="40" y="644" width="112" height="36" rx="4" stroke-width="0.5"/><text class="ts" x="96" y="662" text-anchor="middle" dominant-baseline="central">Pass</text>
-<rect class="box" x="162" y="644" width="112" height="36" rx="4" stroke-width="0.5"/><text class="ts" x="218" y="662" text-anchor="middle" dominant-baseline="central">Add checks</text>
-<rect class="box" x="284" y="644" width="112" height="36" rx="4" stroke-width="0.5"/><text class="ts" x="340" y="662" text-anchor="middle" dominant-baseline="central">Agent challenge</text>
-<rect class="box" x="406" y="644" width="112" height="36" rx="4" stroke-width="0.5"/><text class="ts" x="462" y="662" text-anchor="middle" dominant-baseline="central">Assisted KYC</text>
-<rect class="box" x="528" y="644" width="112" height="36" rx="4" stroke-width="0.5"/><text class="ts" x="584" y="662" text-anchor="middle" dominant-baseline="central">Hold</text>
-
-<rect x="40" y="704" width="600" height="90" rx="12" fill="none" stroke="#B4B2A9" stroke-width="0.5" class="dash"/>
-<text class="th" x="56" y="726" dominant-baseline="central">Not yet measured for India</text>
-<rect class="box dash" x="52" y="742" width="104" height="36" rx="4" stroke-width="0.5"/><text class="ts" x="104" y="760" text-anchor="middle" dominant-baseline="central">Budget phones</text>
-<rect class="box dash" x="170" y="742" width="104" height="36" rx="4" stroke-width="0.5"/><text class="ts" x="222" y="760" text-anchor="middle" dominant-baseline="central">Tube lights</text>
-<rect class="box dash" x="288" y="742" width="104" height="36" rx="4" stroke-width="0.5"/><text class="ts" x="340" y="760" text-anchor="middle" dominant-baseline="central">Skin tones</text>
-<rect class="box dash" x="406" y="742" width="104" height="36" rx="4" stroke-width="0.5"/><text class="ts" x="458" y="760" text-anchor="middle" dominant-baseline="central">Live swaps</text>
-<rect class="box dash" x="524" y="742" width="104" height="36" rx="4" stroke-width="0.5"/><text class="ts" x="576" y="760" text-anchor="middle" dominant-baseline="central">Languages</text>
-
-<g class="teal"><rect x="40" y="808" width="14" height="14" rx="3" stroke-width="0.5"/></g><text class="ts" x="62" y="815" dominant-baseline="central">Built</text>
-<g class="coral"><rect x="120" y="808" width="14" height="14" rx="3" stroke-width="0.5"/></g><text class="ts" x="142" y="815" dominant-baseline="central">Not built</text>
-<rect class="box" x="230" y="808" width="14" height="14" rx="3" stroke-width="0.5"/><text class="ts" x="252" y="815" dominant-baseline="central">Designed outcome</text>
-<rect class="box dash" x="380" y="808" width="14" height="14" rx="3" stroke-width="0.5"/><text class="ts" x="402" y="815" dominant-baseline="central">Not yet measured</text>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#5F5E5A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect x="0" y="0" width="1200" height="964" fill="#FFFFFF"/>
+<text class="kick" x="24" y="30">ARCHITECTURE · REVISED 2026-10-21</text>
+<text class="h1" x="24" y="60">PulseLens end-to-end system</text>
+<text class="su" x="400" y="60">Four questions, one plan per measured device tier, and an agent who always decides.</text>
+<rect class="col" x="16" y="88" width="328" height="762" rx="10"/>
+<text class="h2" x="34" y="116">Applicant's device</text>
+<text class="su" x="34" y="136">phone or laptop browser, no app</text>
+<rect class="col" x="360" y="88" width="600" height="762" rx="10"/>
+<text class="h2" x="378" y="116">PulseLens service</text>
+<text class="su" x="378" y="136">self-hosted in India: the bank's cloud or on-prem</text>
+<rect class="col" x="976" y="88" width="208" height="762" rx="10"/>
+<text class="h2" x="994" y="116">Bank systems</text>
+<text class="su" x="994" y="136">existing tools it plugs into</text>
+<rect class="built" x="32" y="152" width="296" height="54" rx="6"/>
+<text class="ti" x="44" y="174">Camera probe</text>
+<text class="su" x="44" y="192">mode switch, exposure lock</text>
+<rect class="planned" x="32" y="216" width="296" height="54" rx="6"/>
+<text class="ti" x="44" y="238">Coaching</text>
+<text class="su" x="44" y="256">light, distance, many languages</text>
+<rect class="built" x="32" y="280" width="296" height="54" rx="6"/>
+<text class="ti" x="44" y="302">Colour flash</text>
+<text class="su" x="44" y="320">random, equal brightness</text>
+<rect class="planned" x="32" y="344" width="296" height="54" rx="6"/>
+<text class="ti" x="44" y="366">Split-screen flash</text>
+<text class="su" x="44" y="384">left and right halves differ</text>
+<rect class="planned" x="32" y="408" width="296" height="54" rx="6"/>
+<text class="ti" x="44" y="430">Tilt and hand prompts</text>
+<text class="su" x="44" y="448">gyroscope, hand across face</text>
+<rect class="new" x="32" y="472" width="296" height="54" rx="6"/>
+<text class="ti" x="44" y="494">Closer / farther, head turn</text>
+<text class="su" x="44" y="512">distance law, profile view</text>
+<rect class="new" x="32" y="536" width="296" height="54" rx="6"/>
+<text class="ti" x="44" y="558">Vibration</text>
+<text class="su" x="44" y="576">Android browsers only</text>
+<rect class="built" x="32" y="600" width="296" height="54" rx="6"/>
+<text class="ti" x="44" y="622">Capture and upload</text>
+<text class="su" x="44" y="640">frames, timestamps, fingerprint</text>
+<rect x="34" y="694" width="16" height="13" rx="2" fill="#5F5E5A"/><path d="M37 694 v-4 a5 5 0 0 1 10 0 v4" fill="none" stroke="#5F5E5A" stroke-width="2"/>
+<text class="su" x="60" y="702" font-style="italic">No heart rate or pulse waveform</text>
+<text class="su" x="60" y="718" font-style="italic">is ever stored</text>
+<rect class="planned" x="376" y="152" width="568" height="54" rx="6"/>
+<text class="ti" x="388" y="174">Policy and planner</text>
+<text class="su" x="388" y="192">measures the device, picks one of the six tiers below, plans within an effort cap</text>
+<rect class="new" x="376" y="218" width="180" height="46" rx="6"/>
+<text class="ti" x="386" y="237" style="font-size:13px">Good phone</text>
+<text class="su" x="386" y="254">flash, tilt, distance</text>
+<rect class="new" x="570" y="218" width="180" height="46" rx="6"/>
+<text class="ti" x="580" y="237" style="font-size:13px">Budget phone</text>
+<text class="su" x="580" y="254">distance, tilt, slow flash</text>
+<rect class="new" x="764" y="218" width="180" height="46" rx="6"/>
+<text class="ti" x="774" y="237" style="font-size:13px">Good webcam</text>
+<text class="su" x="774" y="254">flash, split, head turn</text>
+<rect class="new" x="376" y="272" width="180" height="46" rx="6"/>
+<text class="ti" x="386" y="291" style="font-size:13px">Bad webcam</text>
+<text class="su" x="386" y="308">coach, head turn, agent</text>
+<rect class="new" x="570" y="272" width="180" height="46" rx="6"/>
+<text class="ti" x="580" y="291" style="font-size:13px">Suspicious device</text>
+<text class="su" x="580" y="308">all units + agent</text>
+<rect class="new" x="764" y="272" width="180" height="46" rx="6"/>
+<text class="ti" x="774" y="291" style="font-size:13px">No-flash</text>
+<text class="su" x="774" y="308">no light, agent path</text>
+<rect class="built" x="376" y="330" width="278" height="54" rx="6"/>
+<text class="ti" x="388" y="352">Pulses</text>
+<text class="su" x="388" y="370">signed, released by planner or agent</text>
+<rect class="planned" x="666" y="330" width="278" height="54" rx="6"/>
+<text class="ti" x="678" y="352">Device baselines</text>
+<text class="su" x="678" y="370">per tier; today one provisional set</text>
+<rect class="q" x="376" y="398" width="133" height="210" rx="6"/>
+<text class="ti" x="388" y="420">Real camera?</text>
+<text class="su" x="388" y="438">camera family</text>
+<circle class="d-built" cx="392" cy="460" r="4.5"/>
+<text class="it" x="404" y="464">Mode switch</text>
+<circle class="d-built" cx="392" cy="482" r="4.5"/>
+<text class="it" x="404" y="486">Noise curve</text>
+<circle class="d-built" cx="392" cy="504" r="4.5"/>
+<text class="it" x="404" y="508">Fingerprint</text>
+<circle class="d-built" cx="392" cy="526" r="4.5"/>
+<text class="it" x="404" y="530">Frame timing</text>
+<circle class="d-built" cx="392" cy="548" r="4.5"/>
+<text class="it" x="404" y="552">Duplicates</text>
+<circle class="d-built" cx="392" cy="570" r="4.5"/>
+<text class="it" x="404" y="574">Device rules</text>
+<rect class="q" x="521" y="398" width="133" height="210" rx="6"/>
+<text class="ti" x="533" y="420">Live scene?</text>
+<text class="su" x="533" y="438">optical timing</text>
+<circle class="d-built" cx="537" cy="460" r="4.5"/>
+<text class="it" x="549" y="464">Echo delay</text>
+<circle class="d-new" cx="537" cy="482" r="4.5"/>
+<text class="it" x="549" y="486">Flicker filter</text>
+<circle class="d-planned" cx="537" cy="504" r="4.5"/>
+<text class="it" x="549" y="508">Lens step</text>
+<rect class="q" x="666" y="398" width="133" height="210" rx="6"/>
+<text class="ti" x="678" y="420">Same as neck?</text>
+<text class="su" x="678" y="438">optical surface</text>
+<circle class="d-built" cx="682" cy="460" r="4.5"/>
+<text class="it" x="694" y="464">Echo vs neck</text>
+<circle class="d-planned" cx="682" cy="482" r="4.5"/>
+<text class="it" x="694" y="486">Split cheeks</text>
+<circle class="d-planned" cx="682" cy="504" r="4.5"/>
+<text class="it" x="694" y="508">Noise vs flash</text>
+<circle class="d-new" cx="682" cy="526" r="4.5"/>
+<text class="it" x="694" y="530">Noise, sharpness</text>
+<circle class="d-new" cx="682" cy="548" r="4.5"/>
+<text class="it" x="694" y="552">Eye glint</text>
+<circle class="d-planned" cx="682" cy="570" r="4.5"/>
+<text class="it" x="694" y="574">Pulse (lab only)</text>
+<rect class="q" x="811" y="398" width="133" height="210" rx="6"/>
+<text class="ti" x="823" y="420">Holds up?</text>
+<text class="su" x="823" y="438">motion, content</text>
+<circle class="d-planned" cx="827" cy="460" r="4.5"/>
+<text class="it" x="839" y="464">Tilt vs gyro</text>
+<circle class="d-planned" cx="827" cy="482" r="4.5"/>
+<text class="it" x="839" y="486">Hand prompt</text>
+<circle class="d-new" cx="827" cy="504" r="4.5"/>
+<text class="it" x="839" y="508">Distance law</text>
+<circle class="d-new" cx="827" cy="526" r="4.5"/>
+<text class="it" x="839" y="530">Turn identity</text>
+<circle class="d-new" cx="827" cy="548" r="4.5"/>
+<text class="it" x="839" y="552">SBI, MiniFASNet</text>
+<circle class="d-new" cx="827" cy="570" r="4.5"/>
+<text class="it" x="839" y="574">Vibration shake</text>
+<rect class="built" x="376" y="622" width="278" height="54" rx="6"/>
+<text class="ti" x="388" y="644">Ingest and integrity</text>
+<text class="su" x="388" y="662">signature, timing, session token</text>
+<rect class="navy" x="666" y="622" width="278" height="54" rx="6"/>
+<text class="nt" x="678" y="646">Continuity guard</text>
+<text class="ns" x="678" y="666">same face and camera all call</text>
+<rect class="pill" x="872" y="632" width="62" height="18" rx="9"/>
+<text class="pt" x="903.0" y="645" text-anchor="middle">planned</text>
+<rect class="navy" x="376" y="690" width="568" height="64" rx="6"/>
+<text class="nt" x="388" y="714">Family-level fusion and routing</text>
+<text class="ns" x="388" y="734">calibrated LR · pass · add checks · agent challenge · assisted KYC · hold</text>
+<rect class="pill" x="872" y="700" width="62" height="18" rx="9"/>
+<text class="pt" x="903.0" y="713" text-anchor="middle">planned</text>
+<rect class="built" x="376" y="768" width="278" height="54" rx="6"/>
+<text class="ti" x="388" y="790">Results and report</text>
+<text class="su" x="388" y="808">Lab results card, analyze API</text>
+<rect class="planned" x="666" y="768" width="278" height="54" rx="6"/>
+<text class="ti" x="678" y="790">Evaluation</text>
+<text class="su" x="678" y="808">APCER, BPCER per tier and skin tone</text>
+<rect class="planned" x="992" y="152" width="176" height="54" rx="6"/>
+<text class="ti" x="1004" y="174">Bank policy file</text>
+<text class="su" x="1004" y="192">bar, effort cap, routes</text>
+<rect class="planned" x="992" y="390" width="176" height="54" rx="6"/>
+<text class="ti" x="1004" y="412">Evidence store</text>
+<text class="su" x="1004" y="430">encrypted, hash-chained</text>
+<rect class="planned" x="992" y="490" width="176" height="54" rx="6"/>
+<text class="ti" x="1004" y="512">Reporting</text>
+<text class="su" x="1004" y="530">STR and NCRP processes</text>
+<rect class="planned" x="992" y="590" width="176" height="54" rx="6"/>
+<text class="ti" x="1004" y="612">Case management</text>
+<text class="su" x="1004" y="630">holds and challenges</text>
+<rect class="planned" x="992" y="690" width="176" height="54" rx="6"/>
+<text class="ti" x="1004" y="712">Agent console</text>
+<text class="su" x="1004" y="730">decide, fire a pulse</text>
+<path class="arr" d="M328 179 L372 179" marker-end="url(#ah)"/>
+<path class="arr" d="M992 179 L948 179" marker-end="url(#ah)"/>
+<path class="arr" d="M376 357 L332 357" marker-end="url(#ah)"/>
+<path class="arr" d="M328 627 L350 627 L350 649 L372 649" marker-end="url(#ah)"/>
+<path class="arr" d="M944 717 L988 717" marker-end="url(#ah)"/>
+<path class="arr" d="M1080 690 L1080 648" marker-end="url(#ah)"/>
+<path class="arr" d="M1080 590 L1080 548" marker-end="url(#ah)"/>
+<path class="arr" d="M1080 490 L1080 448" marker-end="url(#ah)"/>
+<rect x="26" y="876" width="16" height="13" rx="2" fill="#0F6E56"/><path d="M29 876 v-4 a5 5 0 0 1 10 0 v4" fill="none" stroke="#0F6E56" stroke-width="2"/>
+<text class="it" x="52" y="887"><tspan style="font-weight:700;fill:#0F6E56">Data boundaries:</tspan> no heart rate stored · video stays in the bank's V-CIP recording · decisions only server-side · data stays in India · no third-party detection APIs</text>
+<text class="it" x="52" y="912"><tspan style="font-weight:700;fill:#993C1D">Not yet measured for India:</tspan> budget phones · tube lights · skin tones · languages · live face swaps</text>
+<rect class="built" x="52" y="930" width="22" height="14" rx="3"/>
+<circle class="d-built" cx="88" cy="937" r="4.5"/>
+<text class="su" x="100" y="941">Built</text>
+<rect class="planned" x="272" y="930" width="22" height="14" rx="3"/>
+<circle class="d-planned" cx="308" cy="937" r="4.5"/>
+<text class="su" x="320" y="941">Planned in SPEC</text>
+<rect class="new" x="492" y="930" width="22" height="14" rx="3"/>
+<circle class="d-new" cx="528" cy="937" r="4.5"/>
+<text class="su" x="540" y="941">New since the research</text>
 </svg>
