@@ -121,8 +121,10 @@ def lint(_: argparse.Namespace) -> None:
 
 
 def explainers(_: argparse.Namespace) -> None:
-    """Rebuild packages/explain from docs/EXPLAINERS.md."""
+    """Rebuild packages/explain from docs/EXPLAINERS.md, then report missing and unused keys."""
+    need_venv()
     run("node", "--experimental-strip-types", "--disable-warning=ExperimentalWarning", "scripts/build_explainers.ts")
+    run(VENV_PY, "scripts/check_explainers.py", "--unused")
 
 
 def types(_: argparse.Namespace) -> None:

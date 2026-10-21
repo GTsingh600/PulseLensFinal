@@ -35,7 +35,7 @@ Read these before writing code:
 | End-to-end | `make e2e` (Playwright, Chromium with a fake camera, both sites) |
 | Lint | `make lint` (ruff, eslint) |
 | TS types | `make types` regenerates `packages/types/src/models.gen.ts` (from `server/pulselens/models.py`) and `config.gen.ts` (from `config.yaml`); commit both |
-| Explainers | `make explainers` regenerates `packages/explain/src/explainers.gen.ts` from `docs/EXPLAINERS.md`; a vitest fails while it is stale |
+| Explainers | `make explainers` regenerates `packages/explain/src/explainers.gen.ts` from `docs/EXPLAINERS.md` and lists missing and unused keys; a vitest fails while it is stale, a pytest fails on a missing key |
 | Analyse a session | `python -m pulselens.cli analyze data/sessions/<id> --plots` |
 | Evaluation | `python -m eval.run --split eval/splits.json --out eval/out` |
 
