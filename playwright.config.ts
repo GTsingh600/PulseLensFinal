@@ -5,6 +5,19 @@ import { E2E_DATA_DIR } from "./e2e/support/paths";
 // Native separators and quotes: on Windows the command runs through cmd.exe.
 const venvPython = `"${path.resolve(process.platform === "win32" ? ".venv/Scripts/python.exe" : ".venv/bin/python")}"`;
 
+// Chromium's built-in fake camera: a test pattern with no real face (CLAUDE.md test rules).
+const fakeCamera = ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"];
+
+// The installed Brave (Chromium-based), driven headed: `npx playwright test --project=brave-fake-camera`.
+// BRAVE_PATH overrides the default install location.
+const bravePath =
+  process.env.BRAVE_PATH ??
+  (process.platform === "win32"
+    ? "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
+    : process.platform === "darwin"
+      ? "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+      : "/usr/bin/brave-browser");
+
 // `make e2e` starts the server and both sites, or reuses ones already running locally.
 export default defineConfig({
   testDir: "e2e",
@@ -17,10 +30,17 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         permissions: ["camera"],
-        launchOptions: {
-          // Chromium's built-in fake camera: a test pattern with no real face (CLAUDE.md test rules).
-          args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
-        },
+        launchOptions: { args: fakeCamera },
+      },
+    },
+    {
+      name: "brave-fake-camera",
+      use: {
+        // Brave's own user agent, not the Chrome preset's, so the Camera card reports the real browser.
+        viewport: { width: 1280, height: 720 },
+        permissions: ["camera"],
+        headless: false,
+        launchOptions: { executablePath: bravePath, args: fakeCamera },
       },
     },
   ],
